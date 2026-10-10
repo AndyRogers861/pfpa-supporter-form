@@ -6,6 +6,7 @@ import smtplib
 import ssl
 from datetime import datetime, timezone
 from email.message import EmailMessage
+from pathlib import Path
 
 import streamlit as st
 from supabase import create_client
@@ -23,10 +24,16 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-      .block-container {max-width: 900px; padding-top: 2rem; padding-bottom: 4rem;}
-      .pfpa-brand {text-align:center; margin-bottom:1.5rem;}
-      .pfpa-brand h1 {margin-bottom:0.2rem; font-size:2rem;}
-      .pfpa-brand p {margin-top:0; font-size:1.05rem;}
+      .block-container {max-width: 900px; padding-top: 1.4rem; padding-bottom: 4rem;}
+      .pfpa-brand {text-align:center; margin-bottom:1.2rem;}
+      .pfpa-brand-title {
+          text-align:center; font-size:1.55rem; font-weight:700;
+          margin-top:.35rem; margin-bottom:.15rem;
+      }
+      .pfpa-brand-subtitle {
+          text-align:center; font-size:1.02rem; margin-top:0;
+          margin-bottom:1.4rem; opacity:.82;
+      }
       .pfpa-section {
           font-weight:700; letter-spacing:.04em; text-transform:uppercase;
           border-bottom:1px solid rgba(128,128,128,.35);
@@ -37,9 +44,26 @@ st.markdown(
           border-radius:.5rem; margin:.6rem 0 1rem 0;
       }
     </style>
-    <div class="pfpa-brand">
-      <h1>🐾 Puppy Fosters of Portugal – Algarve</h1>
-      <p>Supporter Application</p>
+    """,
+    unsafe_allow_html=True,
+)
+
+logo_path = Path(__file__).with_name("puppy-fosters-logo.png")
+if logo_path.exists():
+    c1, c2, c3 = st.columns([1, 5, 1])
+    with c2:
+        st.image(str(logo_path), use_container_width=True)
+else:
+    st.markdown(
+        "<div class='pfpa-brand-title'>Puppy Fosters of Portugal – Algarve</div>",
+        unsafe_allow_html=True,
+    )
+
+st.markdown(
+    """
+    <div class="pfpa-brand-title">Supporter Application</div>
+    <div class="pfpa-brand-subtitle">
+      Adoption · Fostering · Volunteering
     </div>
     """,
     unsafe_allow_html=True,
