@@ -10,6 +10,7 @@ from pathlib import Path
 
 import streamlit as st
 from supabase import create_client
+from public_lookups import CALLING_CODES, COUNTRIES, NATIONALITIES, clean_phone_code
 
 
 st.set_page_config(
@@ -24,7 +25,15 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-      .block-container {max-width: 900px; padding-top: 4.5rem; padding-bottom: 4rem;}
+      .block-container {max-width: 760px; padding-top: 4.2rem; padding-bottom: 3rem;}
+      div[data-testid="stForm"] {padding: .2rem 0;}
+      .stButton > button, .stFormSubmitButton > button {min-height: 3rem;}
+      @media (max-width: 640px) {
+        .block-container {padding-left: 1rem; padding-right: 1rem; padding-top: 3.8rem;}
+        .pfpa-brand-title {font-size: 1.35rem !important;}
+        .pfpa-brand-subtitle {font-size: .95rem !important;}
+        div[data-testid="stVerticalBlock"] {gap: .55rem;}
+      }
       .pfpa-brand {text-align:center; margin-bottom:1.2rem;}
       .pfpa-brand-title {
           text-align:center; font-size:1.55rem; font-weight:700;
@@ -240,25 +249,50 @@ if "human_a" not in st.session_state:
 # ---------------------------------------------------------------------
 with st.form("supporter_application_form"):
     st.markdown("<div class='pfpa-section'>Your details</div>", unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        first_name = st.text_input("First name *")
-        phone_code = st.text_input("Phone country code *", value="+351")
-        email_default = invite.get("Email") or ""
-        email = st.text_input("Email address *", value=email_default)
-    with c2:
-        last_name = st.text_input("Last name *")
-        phone_number = st.text_input("Phone number *")
-        nationality = st.text_input("Nationality", help="Optional")
 
-    address = st.text_area("Address *" if any(r in roles for r in ["Adopter", "Foster"]) else "Address")
-    a1, a2, a3 = st.columns(3)
-    with a1:
-        postcode = st.text_input("Post code *" if any(r in roles for r in ["Adopter", "Foster"]) else "Post code")
-    with a2:
-        parish = st.text_input("Parish *" if any(r in roles for r in ["Adopter", "Foster"]) else "Parish")
-    with a3:
-        country = st.text_input("Country *", value="Portugal")
+    # Single-column order is deliberate: it gives a natural tab order and
+    # works cleanly on a telephone screen.
+    first_name = st.text_input("First name *")
+    last_name = st.text_input("Last name *")
+
+    default_calling_code = "+351 PT"
+    phone_code = st.selectbox(
+        "Phone country code *",
+        CALLING_CODES,
+        index=CALLING_CODES.index(default_calling_code)
+        if default_calling_code in CALLING_CODES else 0,
+    )
+    phone_number = st.text_input(
+        "Phone number *",
+        inputmode="tel",
+        help="Enter the local/national number only; the country code is selected above.",
+    )
+
+    email_default = invite.get("Email") or ""
+    email = st.text_input("Email address *", value=email_default)
+
+    nationality = st.selectbox(
+        "Nationality",
+        [""] + NATIONALITIES,
+        index=0,
+        help="Optional at this stage.",
+    )
+
+    address = st.text_area(
+        "Address *" if any(r in roles for r in ["Adopter", "Foster"]) else "Address",
+        height=90,
+    )
+    postcode = st.text_input(
+        "Post code *" if any(r in roles for r in ["Adopter", "Foster"]) else "Post code"
+    )
+    parish = st.text_input(
+        "Parish *" if any(r in roles for r in ["Adopter", "Foster"]) else "Parish"
+    )
+    country = st.selectbox(
+        "Country *",
+        COUNTRIES,
+        index=COUNTRIES.index("Portugal") if "Portugal" in COUNTRIES else 0,
+    )
     nif = st.text_input("NIF", help="Optional at this stage")
 
     # Shared adopter/foster questions: asked only once, reused in both records.
@@ -269,11 +303,14 @@ with st.form("supporter_application_form"):
     if "Adopter" in roles or "Foster" in roles:
         st.markdown("<div class='pfpa-section'>Your home and experience</div>", unsafe_allow_html=True)
         household = st.text_area("Tell us about your home and household *")
-        h1, h2 = st.columns(2)
-        with h1:
-            house_type = st.selectbox("Do you live in a house or apartment? *", ["", "House", "Apartment", "Other"])
-        with h2:
-            rent_own = st.selectbox("Do you rent or own? *", ["", "Own", "Rent", "Other"])
+        house_type = st.selectbox(
+            "Do you live in a house or apartment? *",
+            ["", "House", "Apartment", "Other"],
+        )
+        rent_own = st.selectbox(
+            "Do you rent or own? *",
+            ["", "Own", "Rent", "Other"],
+        )
 
         children = st.text_area(
             "Do you have children? If yes, what ages? *",
@@ -284,15 +321,17 @@ with st.form("supporter_application_form"):
             placeholder="If none, please enter 'None'.",
         )
 
-        o1, o2 = st.columns([1, 2])
-        with o1:
-            outdoor_choice = st.selectbox("Private outdoor space? *", ["", "Yes", "No"])
-            private_outdoor = True if outdoor_choice == "Yes" else (False if outdoor_choice == "No" else None)
-        with o2:
-            outdoor_description = st.text_area(
-                "Please describe the outdoor space and how secure it is *",
-                help="If you have no private outdoor space, explain that here.",
-            )
+        outdoor_choice = st.selectbox("Private outdoor space? *", ["", "Yes", "No"])
+        private_outdoor = (
+            True if outdoor_choice == "Yes"
+            else False if outdoor_choice == "No"
+            else None
+        )
+        outdoor_description = st.text_area(
+            "Please describe the outdoor space and how secure it is *",
+            help="If you have no private outdoor space, explain that here.",
+            height=90,
+        )
 
         dog_experience = st.text_area(
             "Please describe your experience with dogs, puppies or fostering *"
@@ -434,7 +473,7 @@ if submitted:
             "first_name": first_name.strip(),
             "last_name": last_name.strip(),
             "email": _clean_email(email),
-            "phone_code": phone_code.strip(),
+            "phone_code": clean_phone_code(phone_code),
             "phone_number": phone_number.strip(),
             "address": address.strip(),
             "postcode": postcode.strip(),
