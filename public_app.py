@@ -24,7 +24,7 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-      .block-container {max-width: 900px; padding-top: 1.4rem; padding-bottom: 4rem;}
+      .block-container {max-width: 900px; padding-top: 4.5rem; padding-bottom: 4rem;}
       .pfpa-brand {text-align:center; margin-bottom:1.2rem;}
       .pfpa-brand-title {
           text-align:center; font-size:1.55rem; font-weight:700;
@@ -48,12 +48,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-logo_path = Path(__file__).with_name("puppy-fosters-logo.png")
+logo_path = Path(__file__).resolve().parent / "puppy-fosters-logo.png"
+
 if logo_path.exists():
-    c1, c2, c3 = st.columns([1, 5, 1])
+    logo_bytes = logo_path.read_bytes()
+    c1, c2, c3 = st.columns([1, 4, 1])
     with c2:
-        st.image(str(logo_path), use_container_width=True)
+        st.image(logo_bytes, use_container_width=True)
 else:
+    st.warning("Logo file not found: puppy-fosters-logo.png")
     st.markdown(
         "<div class='pfpa-brand-title'>Puppy Fosters of Portugal – Algarve</div>",
         unsafe_allow_html=True,
