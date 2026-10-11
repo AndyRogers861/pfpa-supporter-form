@@ -363,19 +363,18 @@ if pending:
 
     version = int(st.session_state.get("turnstile_version", 0))
     component_key = f"pfpa_turnstile_{version}"
-    component_state = st.session_state.get(component_key, {})
-    existing_token = component_state.get("token", "") if isinstance(component_state, dict) else ""
 
+    # A Components v2 default state key must have a matching
+    # on_<state>_change callback.
     turnstile_result = turnstile_component(
         data={"sitekey": TURNSTILE_SITE_KEY},
-        default={"token": existing_token},
+        default={"token": ""},
+        on_token_change=lambda: None,
         key=component_key,
+        width="stretch",
+        height=120,
     )
-    turnstile_token = (
-        turnstile_result.get("token", "")
-        if isinstance(turnstile_result, dict)
-        else ""
-    )
+    turnstile_token = getattr(turnstile_result, "token", "") or ""
 
     if turnstile_token:
         valid_turnstile, turnstile_errors = _verify_turnstile(turnstile_token)
@@ -384,7 +383,6 @@ if pending:
             st.session_state["turnstile_error"] = (
                 "The security check could not be validated. Please complete it again."
             )
-            st.session_state.pop(component_key, None)
             st.session_state["turnstile_version"] = version + 1
             st.rerun()
 
@@ -439,7 +437,6 @@ if pending:
             }).eq("Reference", reference).execute()
 
             st.session_state.pop("pending_supporter_submission", None)
-            st.session_state.pop(component_key, None)
             st.session_state["supporter_submit_success"] = reference
             st.rerun()
 
@@ -456,7 +453,7 @@ if pending:
 
     if st.button("← Edit application", width="stretch"):
         st.session_state.pop("pending_supporter_submission", None)
-        st.session_state.pop(component_key, None)
+        st.session_state["turnstile_version"] = version + 1
         st.rerun()
 
     st.stop()
