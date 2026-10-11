@@ -63,7 +63,7 @@ if logo_path.exists():
     logo_bytes = logo_path.read_bytes()
     c1, c2, c3 = st.columns([1, 4, 1])
     with c2:
-        st.image(logo_bytes, use_container_width=True)
+        st.image(logo_bytes, width="stretch")
 else:
     st.warning("Logo file not found: puppy-fosters-logo.png")
     st.markdown(
@@ -264,8 +264,8 @@ with st.form("supporter_application_form"):
     )
     phone_number = st.text_input(
         "Phone number *",
-        inputmode="tel",
         help="Enter the local/national number only; the country code is selected above.",
+        placeholder="e.g. 912 345 678",
     )
 
     email_default = invite.get("Email") or ""
@@ -405,7 +405,7 @@ with st.form("supporter_application_form"):
         step=1,
     )
 
-    submitted = st.form_submit_button("Submit application", type="primary", use_container_width=True)
+    submitted = st.form_submit_button("Submit application", type="primary", width="stretch")
 
 if submitted:
     errors = []
