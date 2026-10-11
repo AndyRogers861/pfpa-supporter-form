@@ -91,7 +91,7 @@ DATA_PROTECTION = (
     "operational requirements."
 )
 
-ROLE_OPTIONS = ["Adopter", "Foster", "Volunteer"]
+ROLE_OPTIONS = ["Volunteer", "Foster", "Adopter"]
 VOLUNTEER_INTERESTS = ["Events", "Transport", "Photography", "Home Visits", "Other"]
 FOSTER_ANIMALS = ["Dogs", "Puppies"]
 FOSTER_DURATIONS = ["2-6 weeks", "Vacation", "Emergency Cover"]
@@ -250,58 +250,48 @@ if "human_a" not in st.session_state:
 with st.form("supporter_application_form"):
     st.markdown("<div class='pfpa-section'>Your details</div>", unsafe_allow_html=True)
 
-    # Single-column order is deliberate: it gives a natural tab order and
-    # works cleanly on a telephone screen.
+    # Single-column order is deliberate for natural tab order and mobile use.
     first_name = st.text_input("First name *")
     last_name = st.text_input("Last name *")
 
     default_calling_code = "+351 PT"
     phone_code = st.selectbox(
-        "Phone country code *",
+        "Country code *",
         CALLING_CODES,
         index=CALLING_CODES.index(default_calling_code)
         if default_calling_code in CALLING_CODES else 0,
     )
     phone_number = st.text_input(
-        "Phone number *",
+        "Phone *",
         help="Enter the local/national number only; the country code is selected above.",
         placeholder="e.g. 912 345 678",
     )
 
     email_default = invite.get("Email") or ""
-    email = st.text_input("Email address *", value=email_default)
+    email = st.text_input("E-mail *", value=email_default)
 
-    nationality = st.selectbox(
-        "Nationality",
-        [""] + NATIONALITIES,
-        index=0,
-        help="Optional at this stage.",
-    )
-
-    address = st.text_area(
-        "Address *" if any(r in roles for r in ["Adopter", "Foster"]) else "Address",
-        height=90,
-    )
-    postcode = st.text_input(
-        "Post code *" if any(r in roles for r in ["Adopter", "Foster"]) else "Post code"
-    )
-    parish = st.text_input(
-        "Parish *" if any(r in roles for r in ["Adopter", "Foster"]) else "Parish"
-    )
+    postcode = st.text_input("Postcode *")
+    parish = st.text_input("Parish *")
     country = st.selectbox(
         "Country *",
         COUNTRIES,
         index=COUNTRIES.index("Portugal") if "Portugal" in COUNTRIES else 0,
     )
-    nif = st.text_input("NIF", help="Optional at this stage")
 
-    # Shared adopter/foster questions: asked only once, reused in both records.
+    # These variables remain in the stored common-data structure for
+    # compatibility with the Admin approval workflow, but are not collected
+    # from Volunteer/Foster applicants.
+    nationality = ""
+    address = ""
+    nif = ""
     household = children = current_pets = house_type = rent_own = ""
     outdoor_description = dog_experience = ""
     private_outdoor = None
 
-    if "Adopter" in roles or "Foster" in roles:
-        st.markdown("<div class='pfpa-section'>Your home and experience</div>", unsafe_allow_html=True)
+    adopter_data = {}
+    if "Adopter" in roles:
+        st.markdown("<div class='pfpa-section'>Adoption</div>", unsafe_allow_html=True)
+
         household = st.text_area("Tell us about your home and household *")
         house_type = st.selectbox(
             "Do you live in a house or apartment? *",
@@ -311,7 +301,6 @@ with st.form("supporter_application_form"):
             "Do you rent or own? *",
             ["", "Own", "Rent", "Other"],
         )
-
         children = st.text_area(
             "Do you have children? If yes, what ages? *",
             placeholder="If none, please enter 'None'.",
@@ -320,7 +309,6 @@ with st.form("supporter_application_form"):
             "Do you currently have pets? What type and ages? *",
             placeholder="If none, please enter 'None'.",
         )
-
         outdoor_choice = st.selectbox("Private outdoor space? *", ["", "Yes", "No"])
         private_outdoor = (
             True if outdoor_choice == "Yes"
@@ -332,14 +320,10 @@ with st.form("supporter_application_form"):
             help="If you have no private outdoor space, explain that here.",
             height=90,
         )
-
         dog_experience = st.text_area(
-            "Please describe your experience with dogs, puppies or fostering *"
+            "Please describe your experience with dogs and puppies *"
         )
 
-    adopter_data = {}
-    if "Adopter" in roles:
-        st.markdown("<div class='pfpa-section'>Adoption</div>", unsafe_allow_html=True)
         adopter_data["exercise_training"] = st.text_area(
             "What is your exercise plan for the dog, and your thoughts about training? *"
         )
@@ -365,18 +349,18 @@ with st.form("supporter_application_form"):
 
     foster_data = {}
     if "Foster" in roles:
-        st.markdown("<div class='pfpa-section'>Fostering</div>", unsafe_allow_html=True)
+        st.markdown("<div class='pfpa-section'>Foster</div>", unsafe_allow_html=True)
         foster_data["animals"] = st.multiselect("What can you foster? *", FOSTER_ANIMALS)
         foster_data["durations"] = st.multiselect(
-            "Availability / duration *",
+            "Duration *",
             FOSTER_DURATIONS,
         )
 
     volunteer_data = {}
     if "Volunteer" in roles:
-        st.markdown("<div class='pfpa-section'>Volunteering</div>", unsafe_allow_html=True)
+        st.markdown("<div class='pfpa-section'>Volunteer</div>", unsafe_allow_html=True)
         volunteer_data["interests"] = st.multiselect(
-            "Areas of interest *",
+            "Interests *",
             VOLUNTEER_INTERESTS,
         )
         volunteer_data["other_notes"] = st.text_area(
@@ -384,8 +368,7 @@ with st.form("supporter_application_form"):
             help="Complete this if you selected Other.",
         )
 
-    st.markdown("<div class='pfpa-section'>Anything else?</div>", unsafe_allow_html=True)
-    additional_notes = st.text_area("Additional information or comments")
+    additional_notes = ""
 
     st.markdown("<div class='pfpa-section'>Data protection and declaration</div>", unsafe_allow_html=True)
     st.write(DATA_PROTECTION)
@@ -409,29 +392,31 @@ with st.form("supporter_application_form"):
 
 if submitted:
     errors = []
-    requires_home = "Adopter" in roles or "Foster" in roles
 
     if not first_name.strip(): errors.append("First name is required.")
     if not last_name.strip(): errors.append("Last name is required.")
-    if not phone_code.strip(): errors.append("Phone country code is required.")
-    if not phone_number.strip(): errors.append("Phone number is required.")
-    if not _valid_email(email): errors.append("Please enter a valid email address.")
+    if not phone_code.strip(): errors.append("Country code is required.")
+    if not phone_number.strip(): errors.append("Phone is required.")
+    if not _valid_email(email): errors.append("Please enter a valid e-mail address.")
+    if not postcode.strip(): errors.append("Postcode is required.")
+    if not parish.strip(): errors.append("Parish is required.")
     if not country.strip(): errors.append("Country is required.")
 
-    if requires_home:
+    if "Adopter" in roles:
         for label, value in [
-            ("Address", address), ("Post code", postcode), ("Parish", parish),
-            ("Home and household", household), ("House type", house_type),
-            ("Rent/own", rent_own), ("Children", children), ("Current pets", current_pets),
+            ("Home and household", household),
+            ("House type", house_type),
+            ("Rent/own", rent_own),
+            ("Children", children),
+            ("Current pets", current_pets),
             ("Outdoor space description", outdoor_description),
-            ("Dog/fostering experience", dog_experience),
+            ("Dog experience", dog_experience),
         ]:
             if not str(value or "").strip():
-                errors.append(f"{label} is required.")
+                errors.append(f"{label} is required for an adopter application.")
         if private_outdoor is None:
             errors.append("Please answer the private outdoor space question.")
 
-    if "Adopter" in roles:
         for key, label in [
             ("exercise_training", "Exercise/training"),
             ("preventative_care", "Preventative care"),
