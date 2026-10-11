@@ -113,6 +113,7 @@ SUPABASE_URL = _secret("SUPABASE_URL")
 SUPABASE_KEY = _secret("SUPABASE_SECRET_KEY")
 TURNSTILE_SITE_KEY = _secret("TURNSTILE_SITE_KEY")
 TURNSTILE_SECRET_KEY = _secret("TURNSTILE_SECRET_KEY")
+PRIVATE_APP_REVIEW_URL = str(_secret("PRIVATE_APP_REVIEW_URL", "") or "").rstrip("/")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("This form is not configured yet. Please contact Puppy Fosters of Portugal – Algarve.")
@@ -405,16 +406,29 @@ if pending:
             }).eq("Invite_ID", pending.get("invite_id")).execute()
 
             admin_email = _secret("APPLICATION_NOTIFICATION_EMAIL")
+
+            review_lines = [
+                "A new supporter application has been received.",
+                "",
+                f"Reference: {reference}",
+                f"Name: {pending['first_name']} {pending['last_name']}",
+                f"Roles: {', '.join(pending['roles'])}",
+                "",
+            ]
+            if PRIVATE_APP_REVIEW_URL:
+                review_lines.extend([
+                    "Review the submitted information in the secure PFPA administration app:",
+                    PRIVATE_APP_REVIEW_URL,
+                ])
+            else:
+                review_lines.append(
+                    "Please review it in the secure PFPA administration app."
+                )
+
             notification_sent = _send_email(
                 admin_email,
                 f"New PFPA supporter application — {reference}",
-                (
-                    "A new supporter application has been received.\n\n"
-                    f"Reference: {reference}\n"
-                    f"Name: {pending['first_name']} {pending['last_name']}\n"
-                    f"Roles: {', '.join(pending['roles'])}\n\n"
-                    "Please review it in the secure PFPA administration app."
-                ),
+                "\n".join(review_lines),
             )
             confirmation_sent = _send_email(
                 pending["email"],
@@ -525,9 +539,33 @@ with st.form("supporter_application_form"):
     outdoor_description = dog_experience = ""
     private_outdoor = None
 
+    volunteer_data = {}
+    if "Volunteer" in roles:
+        st.markdown("<div class='pfpa-section'>Volunteer</div>", unsafe_allow_html=True)
+        volunteer_data["interests"] = st.multiselect(
+            "Interests *",
+            VOLUNTEER_INTERESTS,
+        )
+        volunteer_data["other_notes"] = st.text_area(
+            "Other interest notes",
+            help="Complete this if you selected Other.",
+        )
+
+    foster_data = {}
+    if "Foster" in roles:
+        st.markdown("<div class='pfpa-section'>Foster</div>", unsafe_allow_html=True)
+        foster_data["animals"] = st.multiselect(
+            "What can you foster? *",
+            FOSTER_ANIMALS,
+        )
+        foster_data["durations"] = st.multiselect(
+            "Duration *",
+            FOSTER_DURATIONS,
+        )
+
     adopter_data = {}
     if "Adopter" in roles:
-        st.markdown("<div class='pfpa-section'>Adoption</div>", unsafe_allow_html=True)
+        st.markdown("<div class='pfpa-section'>Adopter</div>", unsafe_allow_html=True)
 
         household = st.text_area("Tell us about your home and household *")
         house_type = st.selectbox(
@@ -582,27 +620,6 @@ with st.form("supporter_application_form"):
         )
         adopter_data["future_change"] = st.text_area(
             "If your housing, work or family situation changes, what would that mean for your dog? *"
-        )
-
-    foster_data = {}
-    if "Foster" in roles:
-        st.markdown("<div class='pfpa-section'>Foster</div>", unsafe_allow_html=True)
-        foster_data["animals"] = st.multiselect("What can you foster? *", FOSTER_ANIMALS)
-        foster_data["durations"] = st.multiselect(
-            "Duration *",
-            FOSTER_DURATIONS,
-        )
-
-    volunteer_data = {}
-    if "Volunteer" in roles:
-        st.markdown("<div class='pfpa-section'>Volunteer</div>", unsafe_allow_html=True)
-        volunteer_data["interests"] = st.multiselect(
-            "Interests *",
-            VOLUNTEER_INTERESTS,
-        )
-        volunteer_data["other_notes"] = st.text_area(
-            "Other interest notes",
-            help="Complete this if you selected Other.",
         )
 
     additional_notes = ""
