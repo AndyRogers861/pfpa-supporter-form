@@ -10,7 +10,7 @@ from pathlib import Path
 import requests
 import streamlit as st
 from supabase import create_client
-from public_lookups import CALLING_CODES, COUNTRIES, NATIONALITIES, clean_phone_code
+from public_lookups import CALLING_CODES, COUNTRIES, clean_phone_code
 
 
 st.set_page_config(
@@ -34,7 +34,6 @@ st.markdown(
         .pfpa-brand-subtitle {font-size: .95rem !important;}
         div[data-testid="stVerticalBlock"] {gap: .55rem;}
       }
-      .pfpa-brand {text-align:center; margin-bottom:1.2rem;}
       .pfpa-brand-title {
           text-align:center; font-size:1.55rem; font-weight:700;
           margin-top:.35rem; margin-bottom:.15rem;
@@ -58,12 +57,10 @@ st.markdown(
 )
 
 logo_path = Path(__file__).resolve().parent / "puppy-fosters-logo.png"
-
 if logo_path.exists():
-    logo_bytes = logo_path.read_bytes()
     c1, c2, c3 = st.columns([1, 4, 1])
     with c2:
-        st.image(logo_bytes, width="stretch")
+        st.image(logo_path.read_bytes(), width="stretch")
 else:
     st.warning("Logo file not found: puppy-fosters-logo.png")
     st.markdown(
@@ -74,9 +71,7 @@ else:
 st.markdown(
     """
     <div class="pfpa-brand-title">Supporter Application</div>
-    <div class="pfpa-brand-subtitle">
-      Adoption · Fostering · Volunteering
-    </div>
+    <div class="pfpa-brand-subtitle">Adoption · Fostering · Volunteering</div>
     """,
     unsafe_allow_html=True,
 )
@@ -95,10 +90,9 @@ ROLE_OPTIONS = ["Volunteer", "Foster", "Adopter"]
 VOLUNTEER_INTERESTS = ["Events", "Transport", "Photography", "Home Visits", "Other"]
 FOSTER_ANIMALS = ["Dogs", "Puppies"]
 FOSTER_DURATIONS = ["2-6 weeks", "Vacation", "Emergency Cover"]
+DOCUMENT_BUCKET = "dog-documents"
 
-# ---------------------------------------------------------------------
-# CONFIG / SUPABASE
-# ---------------------------------------------------------------------
+
 def _secret(name, default=None):
     try:
         value = st.secrets.get(name)
@@ -116,7 +110,7 @@ TURNSTILE_SECRET_KEY = _secret("TURNSTILE_SECRET_KEY")
 PRIVATE_APP_REVIEW_URL = str(_secret("PRIVATE_APP_REVIEW_URL", "") or "").rstrip("/")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error("This form is not configured yet. Please contact Puppy Fosters of Portugal – Algarve.")
+    st.error("This application form is not configured yet. Please contact Puppy Fosters of Portugal – Algarve.")
     st.stop()
 
 if not TURNSTILE_SITE_KEY or not TURNSTILE_SECRET_KEY:
@@ -215,17 +209,12 @@ turnstile_component = st.components.v2.component(
 
 
 def _verify_turnstile(token):
-    """Validate a Turnstile token server-side with Cloudflare Siteverify."""
     if not token:
         return False, ["missing-input-response"]
-
     try:
         response = requests.post(
             "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-            data={
-                "secret": TURNSTILE_SECRET_KEY,
-                "response": token,
-            },
+            data={"secret": TURNSTILE_SECRET_KEY, "response": token},
             timeout=10,
         )
         response.raise_for_status()
@@ -235,17 +224,12 @@ def _verify_turnstile(token):
 
     if not result.get("success"):
         return False, result.get("error-codes") or ["verification-failed"]
-
-    # We set this action in the browser widget. Matching it prevents a valid
-    # token generated for another action from being accepted here.
     if result.get("action") not in (None, "", "supporter_application"):
         return False, ["action-mismatch"]
-
     return True, []
 
 
 def _send_email(to_address, subject, body):
-    """Optional SMTP email; returns True only when successfully sent."""
     host = _secret("SMTP_HOST")
     port = int(_secret("SMTP_PORT", "587"))
     username = _secret("SMTP_USERNAME")
@@ -271,26 +255,39 @@ def _send_email(to_address, subject, body):
         return False
 
 
+def _clean(value):
+    return " ".join(str(value or "").strip().split())
+
+
 def _clean_email(value):
-    return str(value or "").strip().lower()
+    return _clean(value).lower()
 
 
 def _valid_email(value):
     return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", _clean_email(value)))
 
 
+def _make_reference():
+    return f"PFPA-{datetime.now():%Y%m%d}-{secrets.token_hex(3).upper()}"
+
+
+def _safe_filename(name):
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", str(name or "questionnaire.pdf")).strip("-") or "questionnaire.pdf"
+
+
 def _load_invite(token):
     if not token:
         return None
-    result = (
+    rows = (
         supabase.table("Supporter_Invite")
         .select("*")
         .eq("Token", token)
         .eq("Active", True)
         .limit(1)
         .execute()
+        .data
+        or []
     )
-    rows = result.data or []
     if not rows:
         return None
 
@@ -309,11 +306,24 @@ def _load_invite(token):
     return invite
 
 
-def _make_reference():
-    return f"PFPA-{datetime.now():%Y%m%d}-{secrets.token_hex(3).upper()}"
+def _dog(dog_id):
+    if not dog_id:
+        return None
+    rows = (
+        supabase.table("V2_Dog")
+        .select("Dog_ID,Name,Status,Active,is_deleted")
+        .eq("Dog_ID", int(dog_id))
+        .eq("Active", True)
+        .eq("is_deleted", False)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
 
 
-# Success must be handled before re-validating a now-consumed one-time invite.
+# Show success before re-validating a one-use invitation that has just been consumed.
 if st.session_state.get("supporter_submit_success"):
     ref = st.session_state["supporter_submit_success"]
     st.success("Thank you — your application has been received.")
@@ -332,17 +342,28 @@ if st.session_state.get("supporter_submit_success"):
 
 
 # ---------------------------------------------------------------------
-# INVITATION GATE
+# INVITATION GATE - ACCESS REMAINS INVITATION ONLY
 # ---------------------------------------------------------------------
 invite_token = str(st.query_params.get("invite", "") or "").strip()
 invite = _load_invite(invite_token)
 
 if not invite:
     st.info(
-        "This application form is available by invitation. "
-        "Please use the link provided by Puppy Fosters of Portugal – Algarve."
+        "This application form is available by invitation only. "
+        "Please use the link sent to you by Puppy Fosters of Portugal – Algarve."
     )
     st.stop()
+
+allowed_roles = invite.get("Allowed_Roles") or ROLE_OPTIONS
+if isinstance(allowed_roles, str):
+    allowed_roles = [allowed_roles]
+allowed_roles = [r for r in ROLE_OPTIONS if r in allowed_roles] or ROLE_OPTIONS
+
+invited_dog = _dog(invite.get("Related_Dog_ID"))
+if invite.get("Related_Dog_ID") and not invited_dog:
+    st.error("The dog linked to this invitation is no longer available. Please contact Puppy Fosters.")
+    st.stop()
+
 
 # ---------------------------------------------------------------------
 # SECURE SUBMISSION STAGE
@@ -350,10 +371,7 @@ if not invite:
 pending = st.session_state.get("pending_supporter_submission")
 
 if pending:
-    st.markdown(
-        "<div class='pfpa-section'>Secure submission</div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown("<div class='pfpa-section'>Secure submission</div>", unsafe_allow_html=True)
     st.info(
         "Your application details have been checked but have not yet been submitted. "
         "Complete the Cloudflare security check below."
@@ -365,8 +383,6 @@ if pending:
     version = int(st.session_state.get("turnstile_version", 0))
     component_key = f"pfpa_turnstile_{version}"
 
-    # A Components v2 default state key must have a matching
-    # on_<state>_change callback.
     turnstile_result = turnstile_component(
         data={"sitekey": TURNSTILE_SITE_KEY},
         default={"token": ""},
@@ -378,8 +394,7 @@ if pending:
     turnstile_token = getattr(turnstile_result, "token", "") or ""
 
     if turnstile_token:
-        valid_turnstile, turnstile_errors = _verify_turnstile(turnstile_token)
-
+        valid_turnstile, _ = _verify_turnstile(turnstile_token)
         if not valid_turnstile:
             st.session_state["turnstile_error"] = (
                 "The security check could not be validated. Please complete it again."
@@ -387,81 +402,135 @@ if pending:
             st.session_state["turnstile_version"] = version + 1
             st.rerun()
 
-        payload = pending["payload"]
-        reference = pending["reference"]
-
+        app_id = None
+        storage_path = None
         try:
-            inserted = (
-                supabase.table("Supporter_Submission")
-                .insert(payload)
+            app_rows = (
+                supabase.table("V2_Application")
+                .insert(pending["application_payload"])
                 .execute()
                 .data
                 or []
             )
-            if not inserted:
-                raise RuntimeError("No submission record was created.")
+            if not app_rows:
+                raise RuntimeError("No application record was created.")
+            app_id = int(app_rows[0]["Application_ID"])
 
+            for role in pending["roles"]:
+                role_payload = {
+                    "Application_ID": app_id,
+                    "Role_Type": role,
+                    "Status": "Requested",
+                    "Role_Data": pending["role_data"].get(role) or {},
+                }
+                if role == "Adopter" and pending.get("dog_id"):
+                    role_payload["Related_Dog_ID"] = int(pending["dog_id"])
+                supabase.table("V2_Application_Role").insert(role_payload).execute()
+
+            questionnaire = pending.get("questionnaire")
+            if questionnaire:
+                storage_path = (
+                    f"v2/applications/{app_id}/"
+                    f"{secrets.token_hex(8)}-{_safe_filename(questionnaire['name'])}"
+                )
+                storage = supabase.storage.from_(DOCUMENT_BUCKET)
+                storage.upload(
+                    path=storage_path,
+                    file=questionnaire["data"],
+                    file_options={
+                        "content-type": "application/pdf",
+                        "cache-control": "3600",
+                        "upsert": "false",
+                    },
+                )
+                supabase.table("V2_Application_Document").insert({
+                    "Application_ID": app_id,
+                    "Role_Type": "Adopter",
+                    "Dog_ID": int(pending["dog_id"]) if pending.get("dog_id") else None,
+                    "Document_Type": "Adoption Questionnaire",
+                    "File_Name": questionnaire["name"],
+                    "Storage_Path": storage_path,
+                    "Mime_Type": questionnaire.get("type") or "application/pdf",
+                }).execute()
+
+            # Consume the invitation only after the V2 application, role rows and
+            # any questionnaire have all been stored successfully.
             supabase.table("Supporter_Invite").update({
                 "Use_Count": int(pending.get("invite_use_count") or 0) + 1
-            }).eq("Invite_ID", pending.get("invite_id")).execute()
+            }).eq("Invite_ID", pending["invite_id"]).execute()
 
             admin_email = _secret("APPLICATION_NOTIFICATION_EMAIL")
-
             review_lines = [
                 "A new supporter application has been received.",
                 "",
-                f"Reference: {reference}",
+                f"Reference: {pending['reference']}",
                 f"Name: {pending['first_name']} {pending['last_name']}",
                 f"Roles: {', '.join(pending['roles'])}",
-                "",
             ]
+            if pending.get("dog_name"):
+                review_lines.append(f"Dog: {pending['dog_name']}")
+            review_lines.append("")
             if PRIVATE_APP_REVIEW_URL:
                 review_lines.extend([
-                    "Review the submitted information in the secure PFPA administration app:",
+                    "Review the application in the secure PFPA administration app:",
                     PRIVATE_APP_REVIEW_URL,
                 ])
             else:
-                review_lines.append(
-                    "Please review it in the secure PFPA administration app."
-                )
+                review_lines.append("Please review it in the secure PFPA administration app.")
 
             notification_sent = _send_email(
                 admin_email,
-                f"New PFPA supporter application — {reference}",
+                f"New PFPA supporter application — {pending['reference']}",
                 "\n".join(review_lines),
+            )
+
+            confirmation_body = (
+                f"Hello {pending['first_name']},\n\n"
+                "Thank you for your application to Puppy Fosters of Portugal - Algarve.\n"
+                f"We have received your application for: {', '.join(pending['roles'])}.\n"
+            )
+            if pending.get("dog_name"):
+                confirmation_body += f"Dog: {pending['dog_name']}.\n"
+            confirmation_body += (
+                f"\nYour reference is {pending['reference']}.\n\n"
+                "A member of the team will review your information and contact you if "
+                "anything further is required.\n\n"
+                "Submission does not itself constitute approval as an adopter, foster "
+                "or volunteer."
             )
             confirmation_sent = _send_email(
                 pending["email"],
-                f"PFPA application received — {reference}",
-                (
-                    f"Hello {pending['first_name']},\n\n"
-                    "Thank you for your application to Puppy Fosters of Portugal - Algarve.\n"
-                    f"We have received your application for: {', '.join(pending['roles'])}.\n\n"
-                    f"Your reference is {reference}.\n\n"
-                    "A member of the team will review your information and contact you if "
-                    "anything further is required.\n\n"
-                    "Submission does not itself constitute approval as an adopter, foster "
-                    "or volunteer."
-                ),
+                f"PFPA application received — {pending['reference']}",
+                confirmation_body,
             )
 
-            supabase.table("Supporter_Submission").update({
+            supabase.table("V2_Application").update({
                 "Notification_Sent": bool(notification_sent),
                 "Confirmation_Sent": bool(confirmation_sent),
-            }).eq("Reference", reference).execute()
+            }).eq("Application_ID", app_id).execute()
 
             st.session_state.pop("pending_supporter_submission", None)
-            st.session_state["supporter_submit_success"] = reference
+            st.session_state["supporter_submit_success"] = pending["reference"]
             st.rerun()
 
         except Exception:
-            # The Turnstile token is single-use. Keep the form payload, but
-            # provide a fresh widget for the retry.
+            # Best-effort rollback so a failed secure submission does not leave
+            # a half-created application behind.
+            try:
+                if storage_path:
+                    supabase.storage.from_(DOCUMENT_BUCKET).remove([storage_path])
+            except Exception:
+                pass
+            try:
+                if app_id:
+                    supabase.table("V2_Application").delete().eq("Application_ID", app_id).execute()
+            except Exception:
+                pass
+
             st.session_state["turnstile_error"] = (
                 "The security check passed, but the application could not be saved. "
                 "Please complete the fresh security check and try again."
             )
-            st.session_state.pop(component_key, None)
             st.session_state["turnstile_version"] = version + 1
             st.rerun()
 
@@ -473,35 +542,45 @@ if pending:
     st.stop()
 
 
-allowed_roles = invite.get("Allowed_Roles") or ROLE_OPTIONS
-if isinstance(allowed_roles, str):
-    allowed_roles = [allowed_roles]
-allowed_roles = [r for r in ROLE_OPTIONS if r in allowed_roles] or ROLE_OPTIONS
-
 st.markdown(
     "<div class='pfpa-note'>You only need to enter your personal details once. "
-    "If you apply for more than one role, the same information is reused automatically.</div>",
+    "The roles available below are those included in your invitation.</div>",
     unsafe_allow_html=True,
 )
+
+default_roles = allowed_roles if len(allowed_roles) == 1 else []
+if invited_dog and "Adopter" in allowed_roles:
+    default_roles = list(dict.fromkeys(default_roles + ["Adopter"]))
 
 roles = st.multiselect(
     "How would you like to support us? *",
     allowed_roles,
-    default=allowed_roles if len(allowed_roles) == 1 else [],
-    help="You can select more than one role.",
+    default=default_roles,
+    help="You can select more than one role if your invitation allows it.",
 )
+
+if invited_dog and "Adopter" not in roles:
+    st.caption(
+        f"This invitation is linked to {invited_dog.get('Name') or 'a specific dog'}. "
+        "Keep Adopter selected to continue."
+    )
+    st.stop()
 
 if not roles:
     st.caption("Select at least one role to continue.")
     st.stop()
 
+
 # ---------------------------------------------------------------------
-# FORM
+# APPLICATION FORM
 # ---------------------------------------------------------------------
 with st.form("supporter_application_form"):
     st.markdown("<div class='pfpa-section'>Your details</div>", unsafe_allow_html=True)
+    st.caption(
+        "Only the eight core contact fields marked * are mandatory. "
+        "Complete any optional role information that you are comfortable providing."
+    )
 
-    # Single-column order is deliberate for natural tab order and mobile use.
     first_name = st.text_input("First name *")
     last_name = st.text_input("Last name *")
 
@@ -517,10 +596,7 @@ with st.form("supporter_application_form"):
         help="Enter the local/national number only; the country code is selected above.",
         placeholder="e.g. 912 345 678",
     )
-
-    email_default = invite.get("Email") or ""
-    email = st.text_input("E-mail *", value=email_default)
-
+    email = st.text_input("E-mail *", value=invite.get("Email") or "")
     postcode = st.text_input("Postcode *")
     parish = st.text_input("Parish *")
     country = st.selectbox(
@@ -529,100 +605,48 @@ with st.form("supporter_application_form"):
         index=COUNTRIES.index("Portugal") if "Portugal" in COUNTRIES else 0,
     )
 
-    # These variables remain in the stored common-data structure for
-    # compatibility with the Admin approval workflow, but are not collected
-    # from Volunteer/Foster applicants.
-    nationality = ""
-    address = ""
-    nif = ""
-    household = children = current_pets = house_type = rent_own = ""
-    outdoor_description = dog_experience = ""
-    private_outdoor = None
-
     volunteer_data = {}
     if "Volunteer" in roles:
         st.markdown("<div class='pfpa-section'>Volunteer</div>", unsafe_allow_html=True)
         volunteer_data["interests"] = st.multiselect(
-            "Interests *",
-            VOLUNTEER_INTERESTS,
+            "Areas of interest (optional)", VOLUNTEER_INTERESTS
         )
-        volunteer_data["other_notes"] = st.text_area(
-            "Other interest notes",
-            help="Complete this if you selected Other.",
-        )
+        volunteer_data["other_notes"] = st.text_area("Other interest / notes (optional)")
 
     foster_data = {}
     if "Foster" in roles:
         st.markdown("<div class='pfpa-section'>Foster</div>", unsafe_allow_html=True)
-        foster_data["animals"] = st.multiselect(
-            "What can you foster? *",
-            FOSTER_ANIMALS,
-        )
-        foster_data["durations"] = st.multiselect(
-            "Duration *",
-            FOSTER_DURATIONS,
-        )
-
-    adopter_data = {}
-    if "Adopter" in roles:
-        st.markdown("<div class='pfpa-section'>Adopter</div>", unsafe_allow_html=True)
-
-        household = st.text_area("Tell us about your home and household *")
-        house_type = st.selectbox(
-            "Do you live in a house or apartment? *",
-            ["", "House", "Apartment", "Other"],
-        )
-        rent_own = st.selectbox(
-            "Do you rent or own? *",
-            ["", "Own", "Rent", "Other"],
-        )
-        children = st.text_area(
-            "Do you have children? If yes, what ages? *",
-            placeholder="If none, please enter 'None'.",
-        )
-        current_pets = st.text_area(
-            "Do you currently have pets? What type and ages? *",
-            placeholder="If none, please enter 'None'.",
-        )
-        outdoor_choice = st.selectbox("Private outdoor space? *", ["", "Yes", "No"])
-        private_outdoor = (
+        foster_data["animals"] = st.multiselect("What could you foster? (optional)", FOSTER_ANIMALS)
+        foster_data["durations"] = st.multiselect("Availability (optional)", FOSTER_DURATIONS)
+        foster_data["experience"] = st.text_area("Experience with dogs/puppies (optional)")
+        foster_data["home_description"] = st.text_area("Home / household information (optional)")
+        outdoor_choice = st.selectbox("Private outdoor space? (optional)", ["", "Yes", "No"])
+        foster_data["private_outdoor"] = (
             True if outdoor_choice == "Yes"
             else False if outdoor_choice == "No"
             else None
         )
-        outdoor_description = st.text_area(
-            "Please describe the outdoor space and how secure it is *",
-            help="If you have no private outdoor space, explain that here.",
-            height=90,
-        )
-        dog_experience = st.text_area(
-            "Please describe your experience with dogs and puppies *"
-        )
+        foster_data["notes"] = st.text_area("Fostering notes (optional)")
 
-        adopter_data["exercise_training"] = st.text_area(
-            "What is your exercise plan for the dog, and your thoughts about training? *"
-        )
-        adopter_data["preventative_care"] = st.text_area(
-            "How do you feel about sterilisation, regular vaccines, deworming and flea/tick prevention? *"
-        )
-        adopter_data["schedule_alone"] = st.text_area(
-            "What is your schedule during the day — how long will the dog be home alone? *"
-        )
-        adopter_data["sleep_arrangements"] = st.text_area(
-            "Where will the dog sleep at night, and stay when no one is home? *"
-        )
-        adopter_data["vacation_plans"] = st.text_area(
-            "Do you have any vacation plans coming up? *",
-            placeholder="If none, please enter 'None'.",
-        )
-        adopter_data["travel_petsit"] = st.text_area(
-            "When you travel, where will the dog stay if not travelling with you? *"
-        )
-        adopter_data["future_change"] = st.text_area(
-            "If your housing, work or family situation changes, what would that mean for your dog? *"
-        )
-
-    additional_notes = ""
+    adopter_data = {}
+    questionnaire = None
+    if "Adopter" in roles:
+        st.markdown("<div class='pfpa-section'>Adopter</div>", unsafe_allow_html=True)
+        if invited_dog:
+            st.info(
+                f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**. "
+                "Please upload your completed and signed adoption questionnaire below."
+            )
+            questionnaire = st.file_uploader(
+                "Completed and signed adoption questionnaire PDF *",
+                type=["pdf"],
+            )
+        else:
+            st.info(
+                "This is a general potential-adopter application. No questionnaire is required at this stage. "
+                "If you later apply for a specific dog, the team will send you the appropriate questionnaire."
+            )
+        adopter_data["notes"] = st.text_area("Adoption notes (optional)")
 
     st.markdown("<div class='pfpa-section'>Data protection and declaration</div>", unsafe_allow_html=True)
     st.write(DATA_PROTECTION)
@@ -644,115 +668,98 @@ with st.form("supporter_application_form"):
 if submitted:
     errors = []
 
-    if not first_name.strip(): errors.append("First name is required.")
-    if not last_name.strip(): errors.append("Last name is required.")
-    if not phone_code.strip(): errors.append("Country code is required.")
-    if not phone_number.strip(): errors.append("Phone is required.")
-    if not _valid_email(email): errors.append("Please enter a valid e-mail address.")
-    if not postcode.strip(): errors.append("Postcode is required.")
-    if not parish.strip(): errors.append("Parish is required.")
-    if not country.strip(): errors.append("Country is required.")
+    required = [
+        ("First name", first_name),
+        ("Last name", last_name),
+        ("Country code", phone_code),
+        ("Phone", phone_number),
+        ("E-mail", email),
+        ("Postcode", postcode),
+        ("Parish", parish),
+        ("Country", country),
+    ]
+    for label, value in required:
+        if not _clean(value):
+            errors.append(f"{label} is required.")
 
-    if "Adopter" in roles:
-        for label, value in [
-            ("Home and household", household),
-            ("House type", house_type),
-            ("Rent/own", rent_own),
-            ("Children", children),
-            ("Current pets", current_pets),
-            ("Outdoor space description", outdoor_description),
-            ("Dog experience", dog_experience),
-        ]:
-            if not str(value or "").strip():
-                errors.append(f"{label} is required for an adopter application.")
-        if private_outdoor is None:
-            errors.append("Please answer the private outdoor space question.")
+    if email and not _valid_email(email):
+        errors.append("Please enter a valid e-mail address.")
 
-        for key, label in [
-            ("exercise_training", "Exercise/training"),
-            ("preventative_care", "Preventative care"),
-            ("schedule_alone", "Daily schedule"),
-            ("sleep_arrangements", "Sleeping arrangements"),
-            ("vacation_plans", "Vacation plans"),
-            ("travel_petsit", "Travel/pet-sitting"),
-            ("future_change", "Future changes"),
-        ]:
-            if not str(adopter_data.get(key) or "").strip():
-                errors.append(f"{label} is required for an adopter application.")
+    if invited_dog and "Adopter" in roles and questionnaire is None:
+        errors.append("Upload the completed and signed adoption questionnaire PDF.")
 
-    if "Foster" in roles:
-        if not foster_data.get("animals"):
-            errors.append("Select at least one foster animal type.")
-        if not foster_data.get("durations"):
-            errors.append("Select at least one foster availability option.")
-
-    if "Volunteer" in roles:
-        if not volunteer_data.get("interests"):
-            errors.append("Select at least one volunteer interest.")
-        if "Other" in volunteer_data.get("interests", []) and not volunteer_data.get("other_notes", "").strip():
-            errors.append("Please describe your 'Other' volunteer interest.")
+    if questionnaire is not None:
+        if not questionnaire.name.lower().endswith(".pdf"):
+            errors.append("The adoption questionnaire must be a PDF.")
+        elif not questionnaire.getvalue():
+            errors.append("The uploaded questionnaire is empty.")
 
     if not consent:
         errors.append("Data Protection acceptance is required.")
     if not declaration:
         errors.append("The accuracy declaration is required.")
-    if not signed_name.strip():
+    if not _clean(signed_name):
         errors.append("Please type your full name as your electronic signature.")
+
     if errors:
         for error in errors:
             st.error(error)
     else:
         common_data = {
-            "first_name": first_name.strip(),
-            "last_name": last_name.strip(),
+            "first_name": _clean(first_name),
+            "last_name": _clean(last_name),
             "email": _clean_email(email),
             "phone_code": clean_phone_code(phone_code),
-            "phone_number": phone_number.strip(),
-            "address": address.strip(),
-            "postcode": postcode.strip(),
-            "parish": parish.strip(),
-            "country": country.strip(),
-            "nationality": nationality.strip(),
-            "nif": nif.strip(),
-            "household": household.strip(),
-            "children": children.strip(),
-            "current_pets": current_pets.strip(),
-            "house_type": house_type.strip(),
-            "rent_own": rent_own.strip(),
-            "private_outdoor": private_outdoor,
-            "outdoor_description": outdoor_description.strip(),
-            "dog_experience": dog_experience.strip(),
-            "additional_notes": additional_notes.strip(),
+            "phone_number": _clean(phone_number),
+            "postcode": _clean(postcode),
+            "parish": _clean(parish),
+            "country": _clean(country),
+        }
+
+        role_data = {
+            "Volunteer": volunteer_data if "Volunteer" in roles else {},
+            "Foster": foster_data if "Foster" in roles else {},
+            "Adopter": adopter_data if "Adopter" in roles else {},
         }
 
         reference = _make_reference()
-        payload = {
-            "Reference": reference,
+        application_payload = {
             "Invite_ID": invite.get("Invite_ID"),
+            "Source": "Online",
             "Status": "New",
-            "Roles": roles,
+            "Requested_Roles": list(roles),
             "Common_Data": common_data,
-            "Adopter_Data": adopter_data if "Adopter" in roles else {},
-            "Foster_Data": foster_data if "Foster" in roles else {},
-            "Volunteer_Data": volunteer_data if "Volunteer" in roles else {},
+            "Role_Data": role_data,
+            "Applicant_Email": common_data["email"],
+            "Reference": reference,
             "Consent_Accepted": True,
             "Declaration_Accepted": True,
-            "Signed_Name": signed_name.strip(),
+            "Signed_Name": _clean(signed_name),
             "Notification_Sent": False,
             "Confirmation_Sent": False,
         }
 
-        # Do not write anything to Supabase yet. Hold the validated form
-        # temporarily in this Streamlit session until Turnstile has passed.
+        q_payload = None
+        if questionnaire is not None:
+            q_payload = {
+                "name": questionnaire.name,
+                "type": questionnaire.type or "application/pdf",
+                "data": questionnaire.getvalue(),
+            }
+
         st.session_state["pending_supporter_submission"] = {
-            "payload": payload,
+            "application_payload": application_payload,
+            "role_data": role_data,
             "invite_id": invite.get("Invite_ID"),
             "invite_use_count": int(invite.get("Use_Count") or 0),
-            "first_name": first_name.strip(),
-            "last_name": last_name.strip(),
-            "email": _clean_email(email),
+            "first_name": common_data["first_name"],
+            "last_name": common_data["last_name"],
+            "email": common_data["email"],
             "roles": list(roles),
             "reference": reference,
+            "dog_id": int(invited_dog["Dog_ID"]) if invited_dog else None,
+            "dog_name": invited_dog.get("Name") if invited_dog else None,
+            "questionnaire": q_payload,
         }
         st.session_state["turnstile_version"] = int(
             st.session_state.get("turnstile_version", 0)
