@@ -608,6 +608,34 @@ if not roles:
 
 
 # ---------------------------------------------------------------------
+# ADOPTION QUESTIONNAIRE DOWNLOAD
+# ---------------------------------------------------------------------
+# Streamlit does not permit download buttons inside st.form(), so the
+# questionnaire download is deliberately rendered before the form.
+if "Adopter" in roles and invited_dog:
+    st.markdown("<div class='pfpa-section'>Adoption questionnaire</div>", unsafe_allow_html=True)
+    st.write(
+        f"This invitation is for **{invited_dog.get('Name') or 'the selected dog'}**. "
+        "Download the questionnaire, complete and sign it, then upload the completed PDF "
+        "in the Adoption section below."
+    )
+    if QUESTIONNAIRE_PATH.exists():
+        st.download_button(
+            "⬇️ Download Adoption Questionnaire",
+            data=QUESTIONNAIRE_PATH.read_bytes(),
+            file_name="PFPA Adoption Questionnaire EN.pdf",
+            mime="application/pdf",
+            width="stretch",
+            key="download_adoption_questionnaire",
+        )
+    else:
+        st.error(
+            "The adoption questionnaire file is temporarily unavailable. "
+            "Please contact Puppy Fosters before submitting."
+        )
+
+
+# ---------------------------------------------------------------------
 # APPLICATION FORM
 # ---------------------------------------------------------------------
 with st.form("supporter_application_form"):
@@ -671,21 +699,8 @@ with st.form("supporter_application_form"):
         if invited_dog:
             st.info(
                 f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**. "
-                "Download the questionnaire, complete and sign it, then upload the completed PDF below."
+                "Complete and sign the adoption questionnaire, then upload the completed PDF below."
             )
-            if QUESTIONNAIRE_PATH.exists():
-                st.download_button(
-                    "⬇️ Download Adoption Questionnaire",
-                    data=QUESTIONNAIRE_PATH.read_bytes(),
-                    file_name="PFPA Adoption Questionnaire EN.pdf",
-                    mime="application/pdf",
-                    width="stretch",
-                )
-            else:
-                st.error(
-                    "The adoption questionnaire file is temporarily unavailable. "
-                    "Please contact Puppy Fosters before submitting."
-                )
             questionnaire = st.file_uploader(
                 "Completed and signed adoption questionnaire PDF *",
                 type=["pdf"],
