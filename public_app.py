@@ -91,6 +91,7 @@ VOLUNTEER_INTERESTS = ["Events", "Transport", "Photography", "Home Visits", "Oth
 FOSTER_ANIMALS = ["Dogs", "Puppies"]
 FOSTER_DURATIONS = ["2-6 weeks", "Vacation", "Emergency Cover"]
 DOCUMENT_BUCKET = "dog-documents"
+QUESTIONNAIRE_PATH = Path(__file__).resolve().parent / "PFPA Adoption Questionnaire EN.pdf"
 
 
 def _secret(name, default=None):
@@ -323,6 +324,33 @@ def _dog(dog_id):
     return rows[0] if rows else None
 
 
+def _current_adoption(dog_id):
+    if not dog_id:
+        return None
+    rows = (
+        supabase.table("V2_Dog_Adoption")
+        .select("Dog_Adoption_ID,Dog_ID,Supporter_ID,Status,End_Date")
+        .eq("Dog_ID", int(dog_id))
+        .is_("End_Date", "null")
+        .in_("Status", ["Trial", "Adopted"])
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
+
+
+def _dog_accepts_adoption_requests(dog):
+    if not dog:
+        return False
+    if not dog.get("Active") or dog.get("is_deleted"):
+        return False
+    if str(dog.get("Status") or "").strip().lower() in {"adopted", "trial"}:
+        return False
+    return _current_adoption(dog.get("Dog_ID")) is None
+
+
 # Show success before re-validating a one-use invitation that has just been consumed.
 if st.session_state.get("supporter_submit_success"):
     ref = st.session_state["supporter_submit_success"]
@@ -362,6 +390,14 @@ allowed_roles = [r for r in ROLE_OPTIONS if r in allowed_roles] or ROLE_OPTIONS
 invited_dog = _dog(invite.get("Related_Dog_ID"))
 if invite.get("Related_Dog_ID") and not invited_dog:
     st.error("The dog linked to this invitation is no longer available. Please contact Puppy Fosters.")
+    st.stop()
+
+if invited_dog and not _dog_accepts_adoption_requests(invited_dog):
+    st.info(
+        f"{invited_dog.get('Name') or 'This dog'} is no longer accepting adoption applications. "
+        "The dog already has a current adoption/trial or is otherwise unavailable. "
+        "Please contact Puppy Fosters if you would like to discuss another dog."
+    )
     st.stop()
 
 
@@ -635,8 +671,21 @@ with st.form("supporter_application_form"):
         if invited_dog:
             st.info(
                 f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**. "
-                "Please upload your completed and signed adoption questionnaire below."
+                "Download the questionnaire, complete and sign it, then upload the completed PDF below."
             )
+            if QUESTIONNAIRE_PATH.exists():
+                st.download_button(
+                    "⬇️ Download Adoption Questionnaire",
+                    data=QUESTIONNAIRE_PATH.read_bytes(),
+                    file_name="PFPA Adoption Questionnaire EN.pdf",
+                    mime="application/pdf",
+                    width="stretch",
+                )
+            else:
+                st.error(
+                    "The adoption questionnaire file is temporarily unavailable. "
+                    "Please contact Puppy Fosters before submitting."
+                )
             questionnaire = st.file_uploader(
                 "Completed and signed adoption questionnaire PDF *",
                 type=["pdf"],
@@ -667,6 +716,13 @@ with st.form("supporter_application_form"):
 
 if submitted:
     errors = []
+
+    # The dog may have been adopted after the invitation was issued or while
+    # the applicant had the form open, so re-check at submission time.
+    if invited_dog and not _dog_accepts_adoption_requests(_dog(invited_dog["Dog_ID"])):
+        errors.append(
+            f"{invited_dog.get('Name') or 'This dog'} is no longer available for a new adoption application."
+        )
 
     required = [
         ("First name", first_name),
