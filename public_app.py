@@ -382,10 +382,16 @@ if not invite:
     )
     st.stop()
 
-allowed_roles = invite.get("Allowed_Roles") or ROLE_OPTIONS
+allowed_roles = invite.get("Allowed_Roles") or []
 if isinstance(allowed_roles, str):
     allowed_roles = [allowed_roles]
-allowed_roles = [r for r in ROLE_OPTIONS if r in allowed_roles] or ROLE_OPTIONS
+allowed_roles = [r for r in ROLE_OPTIONS if r in allowed_roles]
+if not allowed_roles:
+    st.error(
+        "This invitation does not contain a valid role permission. "
+        "Please contact Puppy Fosters for a new invitation."
+    )
+    st.stop()
 
 invited_dog = _dog(invite.get("Related_Dog_ID"))
 if invite.get("Related_Dog_ID") and not invited_dog:
@@ -441,6 +447,15 @@ if pending:
         app_id = None
         storage_path = None
         try:
+            fresh_invite = _load_invite(invite_token)
+            if not fresh_invite or int(fresh_invite["Invite_ID"]) != int(pending["invite_id"]):
+                raise RuntimeError("The invitation is no longer valid.")
+
+            if pending.get("dog_id"):
+                fresh_dog = _dog(pending["dog_id"])
+                if not _dog_accepts_adoption_requests(fresh_dog):
+                    raise RuntimeError("The dog is no longer available for adoption applications.")
+
             app_rows = (
                 supabase.table("V2_Application")
                 .insert(pending["application_payload"])
@@ -660,7 +675,12 @@ with st.form("supporter_application_form"):
         help="Enter the local/national number only; the country code is selected above.",
         placeholder="e.g. 912 345 678",
     )
-    email = st.text_input("E-mail *", value=invite.get("Email") or "")
+    email = st.text_input(
+        "E-mail *",
+        value=invite.get("Email") or "",
+        disabled=True,
+        help="This application link is tied to the email address used for the invitation.",
+    )
     postcode = st.text_input("Postcode *")
     parish = st.text_input("Parish *")
     country = st.selectbox(
