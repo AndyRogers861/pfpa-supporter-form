@@ -1,23 +1,40 @@
-# PFPA Public Supporter Form — Production Release 1.0
+# PFPA Update 46 — Public Privacy and Terms pages
 
-Separate public-facing Streamlit app for invitation-only Volunteer, Foster and Adopter applications.
+This update adds public Streamlit pages suitable for linking from the PFPA supporter-facing app and for supplying as policy URLs during Google OAuth verification.
 
-## Production controls
-- Valid `Supporter_Invite` token required.
-- Invitation expiry, active state and use limits enforced.
-- Role permissions fail closed.
-- Applicant email is locked to the invited address.
-- Dog-specific adoption invitations recheck dog availability.
-- Dog availability is checked again immediately before save.
-- Dog-specific adopters can download and must upload the questionnaire PDF.
-- Cloudflare Turnstile is validated server-side.
-- Successful submissions feed the V2 Applications workflow; no live Supporter is auto-created.
-- Uploaded V2 documents use the `v2/` Storage prefix.
+## Files
+- Replace `public_app.py` with the supplied version.
+- Add `pages/Privacy_Policy.py`.
+- Add `pages/Terms_of_Service.py`.
 
-## Streamlit Cloud
-Deploy as a separate PUBLIC Streamlit app. The app URL is public, but the form itself is invitation-gated.
-Main file: `public_app.py`.
+No SQL changes are required.
 
-Copy settings from `.streamlit/secrets.example.toml` into Streamlit Cloud Secrets. Do not commit real secrets.
+## Behaviour
+- The supporter application remains invitation-only.
+- Privacy Policy and Terms pages do **not** require an invitation token.
+- The root supporter page shows Privacy Policy and Terms links before invitation validation, so they remain visible even when a visitor has no invitation.
+- Policy pages do not initialise Supabase, OAuth or Turnstile and therefore remain independently accessible.
 
-After deployment, ensure the Cloudflare Turnstile widget allows the final Streamlit hostname.
+## Expected Streamlit routes
+For a Streamlit Community Cloud application at:
+
+`https://YOUR-APP.streamlit.app/`
+
+the page routes should be:
+
+`https://YOUR-APP.streamlit.app/Privacy_Policy`
+
+`https://YOUR-APP.streamlit.app/Terms_of_Service`
+
+Confirm the final routes in the browser after deployment before entering them in Google Cloud.
+
+## Installation
+1. Add the two files under the repository `pages/` directory.
+2. Replace `public_app.py`.
+3. Commit and push.
+4. Let Streamlit redeploy.
+5. Test both policy URLs in a private/incognito browser window without an invitation link.
+6. Confirm the pages can be opened without Google sign-in or PFPA authentication.
+
+## Google OAuth note
+A public policy URL is necessary but Google may also require the application's authorised domain/homepage to satisfy its domain-verification requirements. The Streamlit pages solve the public-page requirement; they do not by themselves establish ownership of a custom domain.

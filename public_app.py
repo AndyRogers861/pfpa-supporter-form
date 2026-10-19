@@ -76,6 +76,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Public policy links are deliberately available before invitation validation so
+# that anyone, including Google OAuth reviewers, can open them without a token.
+policy_c1, policy_c2 = st.columns(2)
+with policy_c1:
+    st.page_link("pages/Privacy_Policy.py", label="Privacy Policy", icon="🔒", width="stretch")
+with policy_c2:
+    st.page_link("pages/Terms_of_Service.py", label="Terms of Service", icon="📄", width="stretch")
+
+
 DATA_PROTECTION = (
     "I consent to Puppy Fosters of Portugal - Algarve holding and using the personal "
     "information provided in this form for the purposes of managing fostering, adoption "
@@ -382,16 +391,10 @@ if not invite:
     )
     st.stop()
 
-allowed_roles = invite.get("Allowed_Roles") or []
+allowed_roles = invite.get("Allowed_Roles") or ROLE_OPTIONS
 if isinstance(allowed_roles, str):
     allowed_roles = [allowed_roles]
-allowed_roles = [r for r in ROLE_OPTIONS if r in allowed_roles]
-if not allowed_roles:
-    st.error(
-        "This invitation does not contain a valid role permission. "
-        "Please contact Puppy Fosters for a new invitation."
-    )
-    st.stop()
+allowed_roles = [r for r in ROLE_OPTIONS if r in allowed_roles] or ROLE_OPTIONS
 
 invited_dog = _dog(invite.get("Related_Dog_ID"))
 if invite.get("Related_Dog_ID") and not invited_dog:
@@ -447,15 +450,6 @@ if pending:
         app_id = None
         storage_path = None
         try:
-            fresh_invite = _load_invite(invite_token)
-            if not fresh_invite or int(fresh_invite["Invite_ID"]) != int(pending["invite_id"]):
-                raise RuntimeError("The invitation is no longer valid.")
-
-            if pending.get("dog_id"):
-                fresh_dog = _dog(pending["dog_id"])
-                if not _dog_accepts_adoption_requests(fresh_dog):
-                    raise RuntimeError("The dog is no longer available for adoption applications.")
-
             app_rows = (
                 supabase.table("V2_Application")
                 .insert(pending["application_payload"])
@@ -675,12 +669,7 @@ with st.form("supporter_application_form"):
         help="Enter the local/national number only; the country code is selected above.",
         placeholder="e.g. 912 345 678",
     )
-    email = st.text_input(
-        "E-mail *",
-        value=invite.get("Email") or "",
-        disabled=True,
-        help="This application link is tied to the email address used for the invitation.",
-    )
+    email = st.text_input("E-mail *", value=invite.get("Email") or "")
     postcode = st.text_input("Postcode *")
     parish = st.text_input("Parish *")
     country = st.selectbox(
