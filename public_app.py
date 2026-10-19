@@ -19,6 +19,193 @@ st.set_page_config(
     layout="centered",
 )
 
+
+# ---------------------------------------------------------------------
+# PUBLIC LEGAL PAGES
+# ---------------------------------------------------------------------
+# These are rendered inside this same Streamlit app using query-string URLs.
+# They deliberately run before invitation, Supabase and Turnstile checks so
+# Google OAuth reviewers and members of the public can open them anonymously.
+
+def _policy_link_bar():
+    st.markdown(
+        """
+        <div style="display:flex;gap:.65rem;flex-wrap:wrap;margin:.7rem 0 1.2rem 0;">
+          <a href="?policy=privacy" target="_self" style="text-decoration:none;">🔒 Privacy Policy</a>
+          <span aria-hidden="true">·</span>
+          <a href="?policy=terms" target="_self" style="text-decoration:none;">📄 Terms of Service</a>
+          <span aria-hidden="true">·</span>
+          <a href="?" target="_self" style="text-decoration:none;">🐾 Supporter Application</a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _policy_logo():
+    logo = Path(__file__).resolve().parent / "puppy-fosters-logo.png"
+    if logo.exists():
+        c1, c2, c3 = st.columns([1, 3, 1])
+        with c2:
+            st.image(logo.read_bytes(), width="stretch")
+
+
+def render_privacy_policy():
+    _policy_logo()
+    st.markdown("**Puppy Fosters of Portugal - Algarve (PFPA)**")
+    st.title("Privacy Policy")
+    st.caption("Effective date: 19 October 2026")
+    _policy_link_bar()
+    st.markdown("""
+### 1. About this policy
+Puppy Fosters of Portugal - Algarve (PFPA) operates the PFPA Management System and related invitation-based supporter application services (together, the “Service”). This Privacy Policy explains what personal information the Service processes, why it is processed, how it is protected, and the choices available to users and other individuals whose information is recorded in the Service.
+
+PFPA is the controller of personal data processed for its own rescue, fostering, adoption, volunteer and administrative purposes. Where PFPA acts on behalf of another organisation, the responsibilities of the parties may be defined separately.
+
+### 2. Information we process
+The Service may process information about authorised users, supporters, foster carers, adopters, volunteers, applicants, veterinary contacts, donors and other people involved in PFPA activities. Depending on the person and purpose, this may include name, email address, telephone number, address or location information, role and application information, correspondence, notes, documents supplied to PFPA, fostering and adoption history, donation records and other information needed to administer PFPA activities.
+
+The Service also stores information about dogs, including identification, health, veterinary, fostering, adoption, cost, donation and document records. Some of those records can be linked to an identifiable person.
+
+### 3. Google sign-in and Google user data
+The PFPA Management System uses Google OAuth solely to authenticate approved users and control access to the private management application. The Google sign-in process may provide PFPA with basic account identity information needed for sign-in, such as a Google account identifier, name, email address and, where supplied by Google, a profile image.
+
+PFPA does not use Google OAuth to read Gmail messages, Google Drive files, Google Calendar data, contacts or other Google account content unless the Service is changed in future and the user is clearly informed and asked to authorise the additional access.
+
+Google user data obtained through OAuth is used only for authentication, account matching, access control, security and administration of the Service. It is not used for advertising, profiling for advertising, or sale to third parties.
+
+PFPA's use and transfer of information received from Google APIs will adhere to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.
+
+### 4. How we use personal information
+PFPA may use personal information to operate and secure the Service; manage authorised user accounts; process supporter, foster, adopter and volunteer applications; manage fostering and adoption activity; maintain animal health and veterinary records; administer donations, costs and documents; communicate with relevant people; maintain audit and operational records; meet legal, safeguarding, accounting and regulatory obligations; and protect the rights, welfare and safety of people and animals.
+
+PFPA will not use personal information for purposes that are incompatible with the reason it was collected without providing appropriate information and, where required, obtaining consent.
+
+### 5. Legal bases under data protection law
+Where the EU General Data Protection Regulation (GDPR) or Portuguese data protection law applies, PFPA will process personal data only where it has an appropriate legal basis. Depending on the circumstances, this may include consent, steps taken at the request of an individual before entering into an agreement, performance of an agreement, compliance with a legal obligation, protection of vital interests, or PFPA's legitimate interests in operating an animal rescue and adoption service safely and effectively.
+
+Where special-category personal data is exceptionally required, PFPA will identify an additional lawful condition before processing it.
+
+### 6. Sharing and service providers
+PFPA may share information internally with authorised staff and volunteers who need it for their role, and externally with veterinary practices, adopters, foster carers, service providers, professional advisers, authorities or other parties where necessary for PFPA activities, safety, legal obligations or the individual's request.
+
+The Service uses third-party technology providers, including cloud hosting, database, authentication and application-hosting providers. These providers may process data on PFPA's behalf under their own security and contractual arrangements. Google acts as the authentication provider for Google sign-in. PFPA does not sell personal information.
+
+### 7. Storage, security and international transfers
+PFPA applies reasonable technical and organisational measures designed to protect information against unauthorised access, loss, misuse or alteration. Access to the private management system is restricted to approved users and is subject to authentication and role-based controls.
+
+Some technology providers may process or store information outside Portugal or the European Economic Area. Where required, PFPA will rely on an appropriate transfer mechanism or other lawful safeguard.
+
+### 8. Retention
+PFPA keeps personal information only for as long as reasonably necessary for the purposes described in this policy, including animal welfare and adoption history, safeguarding, legal, accounting, audit and dispute-resolution needs. Retention periods may therefore vary by record type.
+
+Authentication information linked to an authorised user may be retained while the account remains active and for a reasonable period afterwards where required for security, audit or legal purposes.
+
+### 9. Your rights
+Subject to applicable law, individuals may have rights to request access to their personal data, correction of inaccurate information, deletion, restriction of processing, objection to certain processing, portability of information, and withdrawal of consent where consent is the legal basis. Exercising a right may be subject to legal exceptions, including records PFPA must retain for legal, safeguarding, accounting or animal-welfare reasons.
+
+Individuals also have the right to lodge a complaint with the Portuguese data protection authority, Comissão Nacional de Proteção de Dados (CNPD), where applicable.
+
+### 10. Google account permissions and deletion requests
+Users can review or revoke permissions granted to the Service through their [Google Account security settings](https://myaccount.google.com/permissions). Revoking Google sign-in permission may prevent further access to the PFPA Management System but does not automatically delete records PFPA is otherwise required or entitled to retain.
+
+Requests concerning access, correction or deletion of personal information can be made through PFPA using the contact route stated below. PFPA will verify the requester's identity where appropriate before acting on a request.
+
+### 11. Cookies and session data
+The Service may use essential cookies, session tokens or similar technologies required for authentication, security and operation of the application. PFPA does not use Google OAuth data for advertising cookies or cross-site advertising profiles.
+
+### 12. Changes to this policy
+PFPA may update this Privacy Policy when the Service, legal requirements or data practices change. The current version will be published on the Service website with the date of the latest update.
+
+### 13. Contact
+For privacy and data protection questions, requests or complaints, please contact PFPA using the contact details published on the PFPA application homepage. The same public contact route should be maintained alongside this policy so that individuals can contact PFPA without signing in.
+
+---
+PFPA | Privacy Policy | 19 October 2026
+""")
+
+
+def render_terms_of_service():
+    _policy_logo()
+    st.markdown("**Puppy Fosters of Portugal - Algarve (PFPA)**")
+    st.title("Terms of Service")
+    st.caption("Effective date: 19 October 2026")
+    _policy_link_bar()
+    st.markdown("""
+### 1. About these Terms
+These Terms of Service govern use of the PFPA Management System and related invitation-based PFPA application services (the “Service”), operated by Puppy Fosters of Portugal - Algarve (PFPA). By accessing or using the Service, you agree to these Terms. If you are using the Service on behalf of PFPA or another authorised organisation, you must have authority to do so.
+
+### 2. Purpose of the Service
+The Service is provided to support PFPA's animal rescue, fostering, adoption, volunteer, veterinary, donation and administrative activities. The private management application is intended for approved PFPA users. Public or supporter-facing functions may be restricted to people who receive a valid invitation or authorised link.
+
+### 3. Eligibility and accounts
+You must use the Service only if you are authorised to do so. You are responsible for maintaining the security of your account and sign-in method and for promptly reporting suspected unauthorised access.
+
+Google sign-in is used only as an authentication method for the private PFPA Management System. A successful Google sign-in does not itself create a right to use the Service; PFPA may restrict access to approved email addresses, roles or users.
+
+### 4. Acceptable use
+You must use the Service lawfully, responsibly and only for legitimate PFPA purposes. You must not attempt to gain unauthorised access; interfere with the Service; introduce malicious code; scrape or extract data without authority; share credentials; access records without a genuine operational need; misuse personal information; or use the Service in a way that could harm people, animals, PFPA, its volunteers or third parties.
+
+Users must respect confidentiality and data protection obligations when viewing, entering, downloading or sharing information from the Service.
+
+### 5. Accuracy of information
+Users should take reasonable care to ensure information entered into the Service is accurate, relevant and up to date. PFPA may correct, archive or remove information where necessary for operational, legal, welfare or data-quality reasons.
+
+Animal health, veterinary, adoption and fostering information in the Service is an administrative record and is not a substitute for professional veterinary, legal or other specialist advice.
+
+### 6. Documents and user-provided content
+Where the Service allows documents, photographs, forms or other content to be uploaded, you must have authority to provide that content and must not knowingly upload unlawful, misleading, malicious or irrelevant material. PFPA may restrict, remove or archive uploaded material where appropriate.
+
+You retain any rights you have in material you provide, but you grant PFPA permission to store, reproduce and use it as reasonably necessary to operate PFPA activities and the Service.
+
+### 7. Privacy and Google OAuth
+Use of personal information is governed by the PFPA Privacy Policy. Google OAuth is used to authenticate approved users and provide basic account identity information required for sign-in and access control. PFPA does not use Google OAuth data for advertising or sell it to third parties.
+
+By using Google sign-in, you also remain subject to Google's applicable terms and account policies.
+
+### 8. Availability and changes
+PFPA aims to keep the Service available and reliable but does not guarantee uninterrupted or error-free operation. The Service may be changed, suspended or temporarily unavailable for maintenance, security, technical or operational reasons.
+
+PFPA may add, modify or remove features where reasonably necessary. Material changes affecting users or personal-data practices will be communicated where appropriate.
+
+### 9. Suspension and termination
+PFPA may suspend or terminate access where a user no longer requires access, leaves an authorised role, breaches these Terms, creates a security or privacy risk, or where suspension is otherwise reasonably necessary to protect the Service, PFPA, people or animals.
+
+Users may stop using the Service at any time. Ending access does not automatically require PFPA to delete records that it must or is entitled to retain for legal, accounting, safeguarding, animal-welfare, audit or operational reasons.
+
+### 10. Intellectual property
+The Service, its software, branding, documentation and original content are owned by or licensed to PFPA or its respective rights holders. Except as necessary for authorised use of the Service, no licence is granted to copy, modify, distribute or exploit those materials.
+
+### 11. Third-party services
+The Service depends on third-party providers such as Google and cloud, database and application-hosting services. PFPA is not responsible for independent third-party services or for outages or changes outside PFPA's reasonable control. Third-party services may be subject to their own terms and privacy policies.
+
+### 12. Liability
+To the extent permitted by law, the Service is provided for PFPA's operational use without guarantees that it will meet every requirement or be available at all times. PFPA does not exclude or limit liability where doing so would be unlawful, including liability that cannot legally be excluded under applicable consumer, data protection or other mandatory law.
+
+Users remain responsible for professional, welfare and operational decisions and should not rely solely on the Service where independent verification is reasonably required.
+
+### 13. Governing law
+These Terms are governed by the laws of Portugal, subject to any mandatory rights or jurisdiction that applicable law gives an individual. Any dispute should first be raised with PFPA so that the parties can try to resolve it informally.
+
+### 14. Changes to these Terms
+PFPA may update these Terms when the Service, legal requirements or operating arrangements change. The latest version will be published on the Service website with its effective date. Continued use after an update constitutes acceptance where permitted by law.
+
+### 15. Contact
+Questions about these Terms should be sent to PFPA using the contact details published on the PFPA application homepage.
+
+---
+PFPA | Terms of Service | 19 October 2026
+""")
+
+
+_policy = str(st.query_params.get("policy", "") or "").strip().lower()
+if _policy == "privacy":
+    render_privacy_policy()
+    st.stop()
+if _policy == "terms":
+    render_terms_of_service()
+    st.stop()
+
 # ---------------------------------------------------------------------
 # BRANDING
 # ---------------------------------------------------------------------
@@ -76,13 +263,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Public policy links are deliberately available before invitation validation so
-# that anyone, including Google OAuth reviewers, can open them without a token.
-policy_c1, policy_c2 = st.columns(2)
-with policy_c1:
-    st.page_link("pages/Privacy_Policy.py", label="Privacy Policy", icon="🔒", width="stretch")
-with policy_c2:
-    st.page_link("pages/Terms_of_Service.py", label="Terms of Service", icon="📄", width="stretch")
+_policy_link_bar()
+
 
 
 DATA_PROTECTION = (
