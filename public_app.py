@@ -14,7 +14,7 @@ from public_lookups import CALLING_CODES, COUNTRIES, clean_phone_code
 
 
 st.set_page_config(
-    page_title="Support Puppy Fosters Algarve",
+    page_title="Puppy Fosters - Algarve",
     page_icon="🐾",
     layout="centered",
 )
@@ -52,149 +52,149 @@ def _policy_logo():
 
 def render_privacy_policy():
     _policy_logo()
-    st.markdown("**Puppy Fosters of Portugal - Algarve (PFPA)**")
+    st.markdown("**Puppy Fosters - Algarve**")
     st.title("Privacy Policy")
     st.caption("Effective date: 19 October 2026")
     _policy_link_bar()
     st.markdown("""
 ### 1. About this policy
-Puppy Fosters of Portugal - Algarve (PFPA) operates the PFPA Management System and related invitation-based supporter application services (together, the “Service”). This Privacy Policy explains what personal information the Service processes, why it is processed, how it is protected, and the choices available to users and other individuals whose information is recorded in the Service.
+Puppy Fosters - Algarve operates the Puppy Fosters - Algarve Management System and related invitation-based supporter application services (together, the “Service”). This Privacy Policy explains what personal information the Service processes, why it is processed, how it is protected, and the choices available to users and other individuals whose information is recorded in the Service.
 
-PFPA is the controller of personal data processed for its own rescue, fostering, adoption, volunteer and administrative purposes. Where PFPA acts on behalf of another organisation, the responsibilities of the parties may be defined separately.
+Puppy Fosters - Algarve is the controller of personal data processed for its own rescue, fostering, adoption, volunteer and administrative purposes. Where Puppy Fosters - Algarve acts on behalf of another organisation, the responsibilities of the parties may be defined separately.
 
 ### 2. Information we process
-The Service may process information about authorised users, supporters, foster carers, adopters, volunteers, applicants, veterinary contacts, donors and other people involved in PFPA activities. Depending on the person and purpose, this may include name, email address, telephone number, address or location information, role and application information, correspondence, notes, documents supplied to PFPA, fostering and adoption history, donation records and other information needed to administer PFPA activities.
+The Service may process information about authorised users, supporters, foster carers, adopters, volunteers, applicants, veterinary contacts, donors and other people involved in Puppy Fosters - Algarve activities. Depending on the person and purpose, this may include name, email address, telephone number, address or location information, role and application information, correspondence, notes, documents supplied to Puppy Fosters - Algarve, fostering and adoption history, donation records and other information needed to administer Puppy Fosters - Algarve activities.
 
 The Service also stores information about dogs, including identification, health, veterinary, fostering, adoption, cost, donation and document records. Some of those records can be linked to an identifiable person.
 
 ### 3. Google sign-in and Google user data
-The PFPA Management System uses Google OAuth solely to authenticate approved users and control access to the private management application. The Google sign-in process may provide PFPA with basic account identity information needed for sign-in, such as a Google account identifier, name, email address and, where supplied by Google, a profile image.
+The Puppy Fosters - Algarve Management System uses Google OAuth solely to authenticate approved users and control access to the private management application. The Google sign-in process may provide Puppy Fosters - Algarve with basic account identity information needed for sign-in, such as a Google account identifier, name, email address and, where supplied by Google, a profile image.
 
-PFPA does not use Google OAuth to read Gmail messages, Google Drive files, Google Calendar data, contacts or other Google account content unless the Service is changed in future and the user is clearly informed and asked to authorise the additional access.
+Puppy Fosters - Algarve does not use Google OAuth to read Gmail messages, Google Drive files, Google Calendar data, contacts or other Google account content unless the Service is changed in future and the user is clearly informed and asked to authorise the additional access.
 
 Google user data obtained through OAuth is used only for authentication, account matching, access control, security and administration of the Service. It is not used for advertising, profiling for advertising, or sale to third parties.
 
-PFPA's use and transfer of information received from Google APIs will adhere to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.
+Puppy Fosters - Algarve's use and transfer of information received from Google APIs will adhere to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.
 
 ### 4. How we use personal information
-PFPA may use personal information to operate and secure the Service; manage authorised user accounts; process supporter, foster, adopter and volunteer applications; manage fostering and adoption activity; maintain animal health and veterinary records; administer donations, costs and documents; communicate with relevant people; maintain audit and operational records; meet legal, safeguarding, accounting and regulatory obligations; and protect the rights, welfare and safety of people and animals.
+Puppy Fosters - Algarve may use personal information to operate and secure the Service; manage authorised user accounts; process supporter, foster, adopter and volunteer applications; manage fostering and adoption activity; maintain animal health and veterinary records; administer donations, costs and documents; communicate with relevant people; maintain audit and operational records; meet legal, safeguarding, accounting and regulatory obligations; and protect the rights, welfare and safety of people and animals.
 
-PFPA will not use personal information for purposes that are incompatible with the reason it was collected without providing appropriate information and, where required, obtaining consent.
+Puppy Fosters - Algarve will not use personal information for purposes that are incompatible with the reason it was collected without providing appropriate information and, where required, obtaining consent.
 
 ### 5. Legal bases under data protection law
-Where the EU General Data Protection Regulation (GDPR) or Portuguese data protection law applies, PFPA will process personal data only where it has an appropriate legal basis. Depending on the circumstances, this may include consent, steps taken at the request of an individual before entering into an agreement, performance of an agreement, compliance with a legal obligation, protection of vital interests, or PFPA's legitimate interests in operating an animal rescue and adoption service safely and effectively.
+Where the EU General Data Protection Regulation (GDPR) or Portuguese data protection law applies, Puppy Fosters - Algarve will process personal data only where it has an appropriate legal basis. Depending on the circumstances, this may include consent, steps taken at the request of an individual before entering into an agreement, performance of an agreement, compliance with a legal obligation, protection of vital interests, or Puppy Fosters - Algarve's legitimate interests in operating an animal rescue and adoption service safely and effectively.
 
-Where special-category personal data is exceptionally required, PFPA will identify an additional lawful condition before processing it.
+Where special-category personal data is exceptionally required, Puppy Fosters - Algarve will identify an additional lawful condition before processing it.
 
 ### 6. Sharing and service providers
-PFPA may share information internally with authorised staff and volunteers who need it for their role, and externally with veterinary practices, adopters, foster carers, service providers, professional advisers, authorities or other parties where necessary for PFPA activities, safety, legal obligations or the individual's request.
+Puppy Fosters - Algarve may share information internally with authorised staff and volunteers who need it for their role, and externally with veterinary practices, adopters, foster carers, service providers, professional advisers, authorities or other parties where necessary for Puppy Fosters - Algarve activities, safety, legal obligations or the individual's request.
 
-The Service uses third-party technology providers, including cloud hosting, database, authentication and application-hosting providers. These providers may process data on PFPA's behalf under their own security and contractual arrangements. Google acts as the authentication provider for Google sign-in. PFPA does not sell personal information.
+The Service uses third-party technology providers, including cloud hosting, database, authentication and application-hosting providers. These providers may process data on Puppy Fosters - Algarve's behalf under their own security and contractual arrangements. Google acts as the authentication provider for Google sign-in. Puppy Fosters - Algarve does not sell personal information.
 
 ### 7. Storage, security and international transfers
-PFPA applies reasonable technical and organisational measures designed to protect information against unauthorised access, loss, misuse or alteration. Access to the private management system is restricted to approved users and is subject to authentication and role-based controls.
+Puppy Fosters - Algarve applies reasonable technical and organisational measures designed to protect information against unauthorised access, loss, misuse or alteration. Access to the private management system is restricted to approved users and is subject to authentication and role-based controls.
 
-Some technology providers may process or store information outside Portugal or the European Economic Area. Where required, PFPA will rely on an appropriate transfer mechanism or other lawful safeguard.
+Some technology providers may process or store information outside Portugal or the European Economic Area. Where required, Puppy Fosters - Algarve will rely on an appropriate transfer mechanism or other lawful safeguard.
 
 ### 8. Retention
-PFPA keeps personal information only for as long as reasonably necessary for the purposes described in this policy, including animal welfare and adoption history, safeguarding, legal, accounting, audit and dispute-resolution needs. Retention periods may therefore vary by record type.
+Puppy Fosters - Algarve keeps personal information only for as long as reasonably necessary for the purposes described in this policy, including animal welfare and adoption history, safeguarding, legal, accounting, audit and dispute-resolution needs. Retention periods may therefore vary by record type.
 
 Authentication information linked to an authorised user may be retained while the account remains active and for a reasonable period afterwards where required for security, audit or legal purposes.
 
 ### 9. Your rights
-Subject to applicable law, individuals may have rights to request access to their personal data, correction of inaccurate information, deletion, restriction of processing, objection to certain processing, portability of information, and withdrawal of consent where consent is the legal basis. Exercising a right may be subject to legal exceptions, including records PFPA must retain for legal, safeguarding, accounting or animal-welfare reasons.
+Subject to applicable law, individuals may have rights to request access to their personal data, correction of inaccurate information, deletion, restriction of processing, objection to certain processing, portability of information, and withdrawal of consent where consent is the legal basis. Exercising a right may be subject to legal exceptions, including records Puppy Fosters - Algarve must retain for legal, safeguarding, accounting or animal-welfare reasons.
 
 Individuals also have the right to lodge a complaint with the Portuguese data protection authority, Comissão Nacional de Proteção de Dados (CNPD), where applicable.
 
 ### 10. Google account permissions and deletion requests
-Users can review or revoke permissions granted to the Service through their [Google Account security settings](https://myaccount.google.com/permissions). Revoking Google sign-in permission may prevent further access to the PFPA Management System but does not automatically delete records PFPA is otherwise required or entitled to retain.
+Users can review or revoke permissions granted to the Service through their [Google Account security settings](https://myaccount.google.com/permissions). Revoking Google sign-in permission may prevent further access to the Puppy Fosters - Algarve Management System but does not automatically delete records Puppy Fosters - Algarve is otherwise required or entitled to retain.
 
-Requests concerning access, correction or deletion of personal information can be made through PFPA using the contact route stated below. PFPA will verify the requester's identity where appropriate before acting on a request.
+Requests concerning access, correction or deletion of personal information can be made through Puppy Fosters - Algarve using the contact route stated below. Puppy Fosters - Algarve will verify the requester's identity where appropriate before acting on a request.
 
 ### 11. Cookies and session data
-The Service may use essential cookies, session tokens or similar technologies required for authentication, security and operation of the application. PFPA does not use Google OAuth data for advertising cookies or cross-site advertising profiles.
+The Service may use essential cookies, session tokens or similar technologies required for authentication, security and operation of the application. Puppy Fosters - Algarve does not use Google OAuth data for advertising cookies or cross-site advertising profiles.
 
 ### 12. Changes to this policy
-PFPA may update this Privacy Policy when the Service, legal requirements or data practices change. The current version will be published on the Service website with the date of the latest update.
+Puppy Fosters - Algarve may update this Privacy Policy when the Service, legal requirements or data practices change. The current version will be published on the Service website with the date of the latest update.
 
 ### 13. Contact
-For privacy and data protection questions, requests or complaints, please contact PFPA using the contact details published on the PFPA application homepage. The same public contact route should be maintained alongside this policy so that individuals can contact PFPA without signing in.
+For privacy and data protection questions, requests or complaints, please contact Puppy Fosters - Algarve using the contact details published on the Puppy Fosters - Algarve application homepage. The same public contact route should be maintained alongside this policy so that individuals can contact Puppy Fosters - Algarve without signing in.
 
 ---
-PFPA | Privacy Policy | 19 October 2026
+Puppy Fosters - Algarve | Privacy Policy | 19 October 2026
 """)
 
 
 def render_terms_of_service():
     _policy_logo()
-    st.markdown("**Puppy Fosters of Portugal - Algarve (PFPA)**")
+    st.markdown("**Puppy Fosters - Algarve**")
     st.title("Terms of Service")
     st.caption("Effective date: 19 October 2026")
     _policy_link_bar()
     st.markdown("""
 ### 1. About these Terms
-These Terms of Service govern use of the PFPA Management System and related invitation-based PFPA application services (the “Service”), operated by Puppy Fosters of Portugal - Algarve (PFPA). By accessing or using the Service, you agree to these Terms. If you are using the Service on behalf of PFPA or another authorised organisation, you must have authority to do so.
+These Terms of Service govern use of the Puppy Fosters - Algarve Management System and related invitation-based Puppy Fosters - Algarve application services (the “Service”), operated by Puppy Fosters - Algarve. By accessing or using the Service, you agree to these Terms. If you are using the Service on behalf of Puppy Fosters - Algarve or another authorised organisation, you must have authority to do so.
 
 ### 2. Purpose of the Service
-The Service is provided to support PFPA's animal rescue, fostering, adoption, volunteer, veterinary, donation and administrative activities. The private management application is intended for approved PFPA users. Public or supporter-facing functions may be restricted to people who receive a valid invitation or authorised link.
+The Service is provided to support Puppy Fosters - Algarve's animal rescue, fostering, adoption, volunteer, veterinary, donation and administrative activities. The private management application is intended for approved Puppy Fosters - Algarve users. Public or supporter-facing functions may be restricted to people who receive a valid invitation or authorised link.
 
 ### 3. Eligibility and accounts
 You must use the Service only if you are authorised to do so. You are responsible for maintaining the security of your account and sign-in method and for promptly reporting suspected unauthorised access.
 
-Google sign-in is used only as an authentication method for the private PFPA Management System. A successful Google sign-in does not itself create a right to use the Service; PFPA may restrict access to approved email addresses, roles or users.
+Google sign-in is used only as an authentication method for the private Puppy Fosters - Algarve Management System. A successful Google sign-in does not itself create a right to use the Service; Puppy Fosters - Algarve may restrict access to approved email addresses, roles or users.
 
 ### 4. Acceptable use
-You must use the Service lawfully, responsibly and only for legitimate PFPA purposes. You must not attempt to gain unauthorised access; interfere with the Service; introduce malicious code; scrape or extract data without authority; share credentials; access records without a genuine operational need; misuse personal information; or use the Service in a way that could harm people, animals, PFPA, its volunteers or third parties.
+You must use the Service lawfully, responsibly and only for legitimate Puppy Fosters - Algarve purposes. You must not attempt to gain unauthorised access; interfere with the Service; introduce malicious code; scrape or extract data without authority; share credentials; access records without a genuine operational need; misuse personal information; or use the Service in a way that could harm people, animals, Puppy Fosters - Algarve, its volunteers or third parties.
 
 Users must respect confidentiality and data protection obligations when viewing, entering, downloading or sharing information from the Service.
 
 ### 5. Accuracy of information
-Users should take reasonable care to ensure information entered into the Service is accurate, relevant and up to date. PFPA may correct, archive or remove information where necessary for operational, legal, welfare or data-quality reasons.
+Users should take reasonable care to ensure information entered into the Service is accurate, relevant and up to date. Puppy Fosters - Algarve may correct, archive or remove information where necessary for operational, legal, welfare or data-quality reasons.
 
 Animal health, veterinary, adoption and fostering information in the Service is an administrative record and is not a substitute for professional veterinary, legal or other specialist advice.
 
 ### 6. Documents and user-provided content
-Where the Service allows documents, photographs, forms or other content to be uploaded, you must have authority to provide that content and must not knowingly upload unlawful, misleading, malicious or irrelevant material. PFPA may restrict, remove or archive uploaded material where appropriate.
+Where the Service allows documents, photographs, forms or other content to be uploaded, you must have authority to provide that content and must not knowingly upload unlawful, misleading, malicious or irrelevant material. Puppy Fosters - Algarve may restrict, remove or archive uploaded material where appropriate.
 
-You retain any rights you have in material you provide, but you grant PFPA permission to store, reproduce and use it as reasonably necessary to operate PFPA activities and the Service.
+You retain any rights you have in material you provide, but you grant Puppy Fosters - Algarve permission to store, reproduce and use it as reasonably necessary to operate Puppy Fosters - Algarve activities and the Service.
 
 ### 7. Privacy and Google OAuth
-Use of personal information is governed by the PFPA Privacy Policy. Google OAuth is used to authenticate approved users and provide basic account identity information required for sign-in and access control. PFPA does not use Google OAuth data for advertising or sell it to third parties.
+Use of personal information is governed by the Puppy Fosters - Algarve Privacy Policy. Google OAuth is used to authenticate approved users and provide basic account identity information required for sign-in and access control. Puppy Fosters - Algarve does not use Google OAuth data for advertising or sell it to third parties.
 
 By using Google sign-in, you also remain subject to Google's applicable terms and account policies.
 
 ### 8. Availability and changes
-PFPA aims to keep the Service available and reliable but does not guarantee uninterrupted or error-free operation. The Service may be changed, suspended or temporarily unavailable for maintenance, security, technical or operational reasons.
+Puppy Fosters - Algarve aims to keep the Service available and reliable but does not guarantee uninterrupted or error-free operation. The Service may be changed, suspended or temporarily unavailable for maintenance, security, technical or operational reasons.
 
-PFPA may add, modify or remove features where reasonably necessary. Material changes affecting users or personal-data practices will be communicated where appropriate.
+Puppy Fosters - Algarve may add, modify or remove features where reasonably necessary. Material changes affecting users or personal-data practices will be communicated where appropriate.
 
 ### 9. Suspension and termination
-PFPA may suspend or terminate access where a user no longer requires access, leaves an authorised role, breaches these Terms, creates a security or privacy risk, or where suspension is otherwise reasonably necessary to protect the Service, PFPA, people or animals.
+Puppy Fosters - Algarve may suspend or terminate access where a user no longer requires access, leaves an authorised role, breaches these Terms, creates a security or privacy risk, or where suspension is otherwise reasonably necessary to protect the Service, Puppy Fosters - Algarve, people or animals.
 
-Users may stop using the Service at any time. Ending access does not automatically require PFPA to delete records that it must or is entitled to retain for legal, accounting, safeguarding, animal-welfare, audit or operational reasons.
+Users may stop using the Service at any time. Ending access does not automatically require Puppy Fosters - Algarve to delete records that it must or is entitled to retain for legal, accounting, safeguarding, animal-welfare, audit or operational reasons.
 
 ### 10. Intellectual property
-The Service, its software, branding, documentation and original content are owned by or licensed to PFPA or its respective rights holders. Except as necessary for authorised use of the Service, no licence is granted to copy, modify, distribute or exploit those materials.
+The Service, its software, branding, documentation and original content are owned by or licensed to Puppy Fosters - Algarve or its respective rights holders. Except as necessary for authorised use of the Service, no licence is granted to copy, modify, distribute or exploit those materials.
 
 ### 11. Third-party services
-The Service depends on third-party providers such as Google and cloud, database and application-hosting services. PFPA is not responsible for independent third-party services or for outages or changes outside PFPA's reasonable control. Third-party services may be subject to their own terms and privacy policies.
+The Service depends on third-party providers such as Google and cloud, database and application-hosting services. Puppy Fosters - Algarve is not responsible for independent third-party services or for outages or changes outside Puppy Fosters - Algarve's reasonable control. Third-party services may be subject to their own terms and privacy policies.
 
 ### 12. Liability
-To the extent permitted by law, the Service is provided for PFPA's operational use without guarantees that it will meet every requirement or be available at all times. PFPA does not exclude or limit liability where doing so would be unlawful, including liability that cannot legally be excluded under applicable consumer, data protection or other mandatory law.
+To the extent permitted by law, the Service is provided for Puppy Fosters - Algarve's operational use without guarantees that it will meet every requirement or be available at all times. Puppy Fosters - Algarve does not exclude or limit liability where doing so would be unlawful, including liability that cannot legally be excluded under applicable consumer, data protection or other mandatory law.
 
 Users remain responsible for professional, welfare and operational decisions and should not rely solely on the Service where independent verification is reasonably required.
 
 ### 13. Governing law
-These Terms are governed by the laws of Portugal, subject to any mandatory rights or jurisdiction that applicable law gives an individual. Any dispute should first be raised with PFPA so that the parties can try to resolve it informally.
+These Terms are governed by the laws of Portugal, subject to any mandatory rights or jurisdiction that applicable law gives an individual. Any dispute should first be raised with Puppy Fosters - Algarve so that the parties can try to resolve it informally.
 
 ### 14. Changes to these Terms
-PFPA may update these Terms when the Service, legal requirements or operating arrangements change. The latest version will be published on the Service website with its effective date. Continued use after an update constitutes acceptance where permitted by law.
+Puppy Fosters - Algarve may update these Terms when the Service, legal requirements or operating arrangements change. The latest version will be published on the Service website with its effective date. Continued use after an update constitutes acceptance where permitted by law.
 
 ### 15. Contact
-Questions about these Terms should be sent to PFPA using the contact details published on the PFPA application homepage.
+Questions about these Terms should be sent to Puppy Fosters - Algarve using the contact details published on the Puppy Fosters - Algarve application homepage.
 
 ---
-PFPA | Terms of Service | 19 October 2026
+Puppy Fosters - Algarve | Terms of Service | 19 October 2026
 """)
 
 
@@ -251,7 +251,7 @@ if logo_path.exists():
 else:
     st.warning("Logo file not found: puppy-fosters-logo.png")
     st.markdown(
-        "<div class='pfpa-brand-title'>Puppy Fosters of Portugal – Algarve</div>",
+        "<div class='pfpa-brand-title'>Puppy Fosters - Algarve</div>",
         unsafe_allow_html=True,
     )
 
@@ -302,11 +302,11 @@ TURNSTILE_SECRET_KEY = _secret("TURNSTILE_SECRET_KEY")
 PRIVATE_APP_REVIEW_URL = str(_secret("PRIVATE_APP_REVIEW_URL", "") or "").rstrip("/")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error("This application form is not configured yet. Please contact Puppy Fosters of Portugal – Algarve.")
+    st.error("This application form is not configured yet. Please contact Puppy Fosters - Algarve.")
     st.stop()
 
 if not TURNSTILE_SITE_KEY or not TURNSTILE_SECRET_KEY:
-    st.error("Secure human verification is not configured yet. Please contact Puppy Fosters of Portugal – Algarve.")
+    st.error("Secure human verification is not configured yet. Please contact Puppy Fosters - Algarve.")
     st.stop()
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -460,7 +460,7 @@ def _valid_email(value):
 
 
 def _make_reference():
-    return f"PFPA-{datetime.now():%Y%m%d}-{secrets.token_hex(3).upper()}"
+    return f"PFA-{datetime.now():%Y%m%d}-{secrets.token_hex(3).upper()}"
 
 
 def _safe_filename(name):
@@ -550,7 +550,7 @@ if st.session_state.get("supporter_submit_success"):
         f"""
         <div class="pfpa-note">
         Your reference is <strong>{ref}</strong>.<br><br>
-        A member of Puppy Fosters of Portugal – Algarve will review your information and
+        A member of Puppy Fosters - Algarve will review your information and
         contact you if anything further is required. Submission of this form does not
         itself constitute approval as an adopter, foster or volunteer.
         </div>
@@ -569,7 +569,7 @@ invite = _load_invite(invite_token)
 if not invite:
     st.info(
         "This application form is available by invitation only. "
-        "Please use the link sent to you by Puppy Fosters of Portugal – Algarve."
+        "Please use the link sent to you by Puppy Fosters - Algarve."
     )
     st.stop()
 
@@ -699,15 +699,15 @@ if pending:
             review_lines.append("")
             if PRIVATE_APP_REVIEW_URL:
                 review_lines.extend([
-                    "Review the application in the secure PFPA administration app:",
+                    "Review the application in the secure Puppy Fosters - Algarve administration app:",
                     PRIVATE_APP_REVIEW_URL,
                 ])
             else:
-                review_lines.append("Please review it in the secure PFPA administration app.")
+                review_lines.append("Please review it in the secure Puppy Fosters - Algarve administration app.")
 
             notification_sent = _send_email(
                 admin_email,
-                f"New PFPA supporter application — {pending['reference']}",
+                f"New Puppy Fosters - Algarve supporter application — {pending['reference']}",
                 "\n".join(review_lines),
             )
 
@@ -727,7 +727,7 @@ if pending:
             )
             confirmation_sent = _send_email(
                 pending["email"],
-                f"PFPA application received — {pending['reference']}",
+                f"Puppy Fosters - Algarve application received — {pending['reference']}",
                 confirmation_body,
             )
 
@@ -814,7 +814,7 @@ if "Adopter" in roles and invited_dog:
         st.download_button(
             "⬇️ Download Adoption Questionnaire",
             data=QUESTIONNAIRE_PATH.read_bytes(),
-            file_name="PFPA Adoption Questionnaire EN.pdf",
+            file_name="Puppy Fosters - Algarve Adoption Questionnaire EN.pdf",
             mime="application/pdf",
             width="stretch",
             key="download_adoption_questionnaire",
