@@ -3,7 +3,7 @@ import re
 import secrets
 import smtplib
 import ssl
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -30,12 +30,18 @@ st.set_page_config(
 def _policy_link_bar():
     st.markdown(
         """
-        <div style="display:flex;gap:.65rem;flex-wrap:wrap;margin:.7rem 0 1.2rem 0;">
-          <a href="?policy=privacy" target="_self" style="text-decoration:none;">🔒 Privacy Policy</a>
-          <span aria-hidden="true">·</span>
-          <a href="?policy=terms" target="_self" style="text-decoration:none;">📄 Terms of Service</a>
-          <span aria-hidden="true">·</span>
-          <a href="?" target="_self" style="text-decoration:none;">🐾 Supporter Application</a>
+        <div style="margin:.7rem 0 1.2rem 0;">
+          <div style="margin-bottom:.3rem;">
+            <a href="?" target="_self"
+               style="text-decoration:none;font-size:1.08rem;font-weight:700;">
+              🐾 Supporter Application
+            </a>
+          </div>
+          <div style="font-size:.82rem;opacity:.78;display:flex;gap:.55rem;flex-wrap:wrap;">
+            <a href="?policy=terms" target="_self" style="text-decoration:none;">Terms of Service</a>
+            <span aria-hidden="true">·</span>
+            <a href="?policy=privacy" target="_self" style="text-decoration:none;">Privacy Policy</a>
+          </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -776,6 +782,14 @@ st.markdown(
 )
 
 default_roles = allowed_roles if len(allowed_roles) == 1 else []
+
+if "Adopter" in allowed_roles and not invited_dog:
+    st.error(
+        "Adopter applications must be linked to a specific dog. "
+        "Please ask Puppy Fosters - Algarve for a dog-specific invitation."
+    )
+    st.stop()
+
 if invited_dog and "Adopter" in allowed_roles:
     default_roles = list(dict.fromkeys(default_roles + ["Adopter"]))
 
@@ -832,8 +846,8 @@ if "Adopter" in roles and invited_dog:
 with st.form("supporter_application_form"):
     st.markdown("<div class='pfpa-section'>Your details</div>", unsafe_allow_html=True)
     st.caption(
-        "Only the eight core contact fields marked * are mandatory. "
-        "Complete any optional role information that you are comfortable providing."
+        "Core contact fields marked * are mandatory. "
+        "If you are applying to adopt, every adoption-questionnaire field is mandatory."
     )
 
     first_name = st.text_input("First name *")
@@ -859,6 +873,13 @@ with st.form("supporter_application_form"):
         COUNTRIES,
         index=COUNTRIES.index("Portugal") if "Portugal" in COUNTRIES else 0,
     )
+
+    address = ""
+    if "Adopter" in roles:
+        address = st.text_area(
+            "Address *",
+            help="Required for a dog-specific adoption application and the adoption contract.",
+        )
 
     volunteer_data = {}
     if "Volunteer" in roles:
@@ -886,22 +907,83 @@ with st.form("supporter_application_form"):
     adopter_data = {}
     questionnaire = None
     if "Adopter" in roles:
-        st.markdown("<div class='pfpa-section'>Adopter</div>", unsafe_allow_html=True)
-        if invited_dog:
-            st.info(
-                f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**. "
-                "Complete and sign the adoption questionnaire, then upload the completed PDF below."
-            )
-            questionnaire = st.file_uploader(
-                "Completed and signed adoption questionnaire PDF *",
-                type=["pdf"],
-            )
-        else:
-            st.info(
-                "This is a general potential-adopter application. No questionnaire is required at this stage. "
-                "If you later apply for a specific dog, the team will send you the appropriate questionnaire."
-            )
-        adopter_data["notes"] = st.text_area("Adoption notes (optional)")
+        st.markdown("<div class='pfpa-section'>Adopter questionnaire</div>", unsafe_allow_html=True)
+        st.info(
+            f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**. "
+            "Every questionnaire question below is mandatory. You must also upload the completed "
+            "and signed questionnaire PDF."
+        )
+
+        adopter_data["household"] = st.text_area(
+            "Tell us about your home and household *"
+        )
+        adopter_data["children"] = st.text_area(
+            "Do you have children? If yes, what ages? *",
+            placeholder="If none, enter 'None'.",
+        )
+        adopter_data["current_pets"] = st.text_area(
+            "Do you currently have pets? What type and ages? *",
+            placeholder="If none, enter 'None'.",
+        )
+        adopter_data["house_type"] = st.selectbox(
+            "Do you live in a house or apartment? *",
+            ["", "House", "Apartment", "Other"],
+        )
+        adopter_data["rent_own"] = st.selectbox(
+            "Do you rent or own? *",
+            ["", "Own", "Rent", "Other"],
+        )
+        private_outdoor_choice = st.selectbox(
+            "Do you have an enclosed private outdoor space? *",
+            ["", "Yes", "No"],
+        )
+        adopter_data["private_outdoor"] = (
+            True if private_outdoor_choice == "Yes"
+            else False if private_outdoor_choice == "No"
+            else None
+        )
+        adopter_data["outdoor_description"] = st.text_area(
+            "What type of outdoor space do you have, and is it fenced / secure? *",
+            help="If you have no private outdoor space, state that here.",
+        )
+        adopter_data["dog_experience"] = st.text_area(
+            "Have you raised a puppy before, or do you have other experience with dogs? Please describe. *"
+        )
+        adopter_data["exercise_training"] = st.text_area(
+            "What is your exercise plan for the puppy, and your thoughts about training? *"
+        )
+        adopter_data["preventative_care"] = st.text_area(
+            "How do you feel about sterilisation, regular vaccines, deworming and flea/tick prevention? *"
+        )
+        adopter_data["schedule_alone"] = st.text_area(
+            "What is your schedule during the day — how long will the puppy be home alone? *"
+        )
+        adopter_data["sleep_arrangements"] = st.text_area(
+            "Where will the puppy sleep at night, and stay when no one is home? *"
+        )
+        adopter_data["vacation_plans"] = st.text_area(
+            "Any vacation plans coming up? *",
+            placeholder="If none, enter 'None'.",
+        )
+        adopter_data["travel_petsitting"] = st.text_area(
+            "When you travel, where will the puppy stay if not travelling with you? "
+            "What would you do for pet-sitting or boarding? *"
+        )
+        adopter_data["future_changes"] = st.text_area(
+            "If your housing, work or family situation changes in the future, "
+            "what would that mean for your dog? *"
+        )
+        adopter_data["notes"] = st.text_area("Additional adoption notes (optional)")
+        adopter_data["completed_by"] = st.text_input(
+            "Questionnaire completed by *",
+            value=f"{first_name} {last_name}".strip(),
+        )
+        adopter_data["completed_at"] = date.today().isoformat()
+
+        questionnaire = st.file_uploader(
+            "Completed and signed adoption questionnaire PDF *",
+            type=["pdf"],
+        )
 
     st.markdown("<div class='pfpa-section'>Data protection and declaration</div>", unsafe_allow_html=True)
     st.write(DATA_PROTECTION)
@@ -947,7 +1029,35 @@ if submitted:
     if email and not _valid_email(email):
         errors.append("Please enter a valid e-mail address.")
 
-    if invited_dog and "Adopter" in roles and questionnaire is None:
+    if "Adopter" in roles:
+        if not invited_dog:
+            errors.append("An adopter application must be linked to a specific dog.")
+        if not _clean(address):
+            errors.append("Address is required for an adoption application.")
+        adopter_required = [
+            ("Home and household", adopter_data.get("household")),
+            ("Children", adopter_data.get("children")),
+            ("Current pets", adopter_data.get("current_pets")),
+            ("House type", adopter_data.get("house_type")),
+            ("Rent / own", adopter_data.get("rent_own")),
+            ("Outdoor description", adopter_data.get("outdoor_description")),
+            ("Dog experience", adopter_data.get("dog_experience")),
+            ("Exercise / training", adopter_data.get("exercise_training")),
+            ("Preventative care", adopter_data.get("preventative_care")),
+            ("Daily schedule / time alone", adopter_data.get("schedule_alone")),
+            ("Sleeping arrangements", adopter_data.get("sleep_arrangements")),
+            ("Vacation plans", adopter_data.get("vacation_plans")),
+            ("Travel / pet-sitting", adopter_data.get("travel_petsitting")),
+            ("Future changes", adopter_data.get("future_changes")),
+            ("Questionnaire completed by", adopter_data.get("completed_by")),
+        ]
+        for label, value in adopter_required:
+            if not _clean(value):
+                errors.append(f"{label} is required for an adoption application.")
+        if adopter_data.get("private_outdoor") not in (True, False):
+            errors.append("Private outdoor space must be answered Yes or No.")
+
+    if "Adopter" in roles and questionnaire is None:
         errors.append("Upload the completed and signed adoption questionnaire PDF.")
 
     if questionnaire is not None:
@@ -976,6 +1086,7 @@ if submitted:
             "postcode": _clean(postcode),
             "parish": _clean(parish),
             "country": _clean(country),
+            "address": _clean(address) if "Adopter" in roles else "",
         }
 
         role_data = {
