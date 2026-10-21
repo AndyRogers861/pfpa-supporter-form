@@ -1,5 +1,7 @@
 import os
 import re
+import io
+import html
 import secrets
 import smtplib
 import ssl
@@ -10,6 +12,12 @@ from pathlib import Path
 import requests
 import streamlit as st
 from supabase import create_client
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.lib import colors
 from public_lookups import CALLING_CODES, COUNTRIES, clean_phone_code
 
 
@@ -548,6 +556,338 @@ def _dog_accepts_adoption_requests(dog):
     return _current_adoption(dog.get("Dog_ID")) is None
 
 
+QUESTIONNAIRE_PROFILE_MAP = {
+    "household": "Household",
+    "children": "Children",
+    "current_pets": "Current_Pets",
+    "house_type": "House_Type",
+    "rent_own": "Rent_Own",
+    "private_outdoor": "Private_Outdoor",
+    "outdoor_description": "Outdoor_Description",
+    "dog_experience": "Dog_Experience",
+    "exercise_training": "Exercise_Training",
+    "preventative_care": "Preventative_Care",
+    "schedule_alone": "Schedule_Alone",
+    "sleep_arrangements": "Sleep_Arrangements",
+    "vacation_plans": "Vacation_Plans",
+    "travel_petsitting": "Travel_Petsitting",
+    "future_changes": "Future_Changes",
+    "completed_by": "Questionnaire_Completed_By",
+    "completed_at": "Questionnaire_Completed_At",
+}
+
+
+def _questionnaire_invite_context(invite):
+    app_id = invite.get("Adoption_Application_ID")
+    if not app_id:
+        return None, None
+    apps = (
+        supabase.table("V2_Adoption_Application")
+        .select("*")
+        .eq("Adoption_Application_ID", int(app_id))
+        .limit(1).execute().data or []
+    )
+    if not apps:
+        return None, None
+    app = apps[0]
+    supporters = (
+        supabase.table("V2_Supporter")
+        .select("*")
+        .eq("Supporter_ID", int(app["Supporter_ID"]))
+        .eq("is_deleted", False)
+        .limit(1).execute().data or []
+    )
+    return app, (supporters[0] if supporters else None)
+
+
+def _profile_for_supporter(supporter_id):
+    rows = (
+        supabase.table("V2_Adopter_Profile")
+        .select("*")
+        .eq("Supporter_ID", int(supporter_id))
+        .limit(1).execute().data or []
+    )
+    return rows[0] if rows else {}
+
+
+def _pdf_text(value):
+    return html.escape(str(value or "").strip()).replace("\n", "<br/>") or "—"
+
+
+def _questionnaire_pdf_bytes(dog_name, contact, qdata, signed_name, submitted_at):
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4, rightMargin=16*mm, leftMargin=16*mm,
+        topMargin=15*mm, bottomMargin=15*mm,
+        title=f"Adoption Questionnaire - {dog_name or 'Dog'}",
+    )
+    styles = getSampleStyleSheet()
+    title = ParagraphStyle("PFATitle", parent=styles["Title"], alignment=TA_CENTER, spaceAfter=10)
+    h = ParagraphStyle("PFAHead", parent=styles["Heading2"], spaceBefore=8, spaceAfter=5)
+    body = styles["BodyText"]
+    small = ParagraphStyle("PFASmall", parent=body, fontSize=8.5, leading=10.5)
+    story = [
+        Paragraph("Puppy Fosters - Algarve", title),
+        Paragraph("Adopter's Questionnaire", title),
+        Paragraph(f"Dog: <b>{_pdf_text(dog_name)}</b>", body),
+        Spacer(1, 5*mm),
+        Paragraph("YOUR DETAILS", h),
+    ]
+    details = [
+        ["Name", f"{contact.get('first_name','')} {contact.get('last_name','')}".strip()],
+        ["Address", contact.get("address")],
+        ["Phone", f"{contact.get('phone_code','')} {contact.get('phone_number','')}".strip()],
+        ["Email", contact.get("email")],
+    ]
+    table = Table([[Paragraph(f"<b>{_pdf_text(a)}</b>", small), Paragraph(_pdf_text(b), small)] for a,b in details], colWidths=[42*mm, 125*mm])
+    table.setStyle(TableStyle([
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("GRID", (0,0), (-1,-1), 0.25, colors.lightgrey),
+        ("BACKGROUND", (0,0), (0,-1), colors.whitesmoke),
+        ("LEFTPADDING", (0,0), (-1,-1), 5), ("RIGHTPADDING", (0,0), (-1,-1), 5),
+        ("TOPPADDING", (0,0), (-1,-1), 4), ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+    ]))
+    story += [table, Spacer(1, 5*mm), Paragraph("ABOUT YOU, YOUR HOME AND YOUR LIFESTYLE", h)]
+    questions = [
+        ("Tell us a bit about yourself and your household", "household"),
+        ("Do you have children? Ages?", "children"),
+        ("Do you currently have pets? What type and ages?", "current_pets"),
+        ("Do you live in a house or apartment?", "house_type"),
+        ("Do you rent or own?", "rent_own"),
+        ("Do you have an enclosed private outdoor space?", "private_outdoor"),
+        ("What type of outdoor space do you have, and is it fenced/secure?", "outdoor_description"),
+        ("Have you raised a puppy before, or do you have other experience with dogs?", "dog_experience"),
+        ("What is your exercise plan for the puppy, and your thoughts about training?", "exercise_training"),
+        ("How do you feel about sterilisation, regular vaccines, deworming and flea/tick prevention?", "preventative_care"),
+        ("What is your schedule during the day - how long will the puppy be home alone?", "schedule_alone"),
+        ("Where will the puppy sleep at night, and stay when no one is home?", "sleep_arrangements"),
+        ("Any vacation plans coming up?", "vacation_plans"),
+        ("When you travel, where will the puppy be if not travelling with you? Pet-sitting or boarding?", "travel_petsitting"),
+        ("If your housing, work, or family situation changes, what would that mean for your dog?", "future_changes"),
+    ]
+    for label, key in questions:
+        value = qdata.get(key)
+        if key == "private_outdoor":
+            value = "Yes" if value is True else "No" if value is False else ""
+        story += [Paragraph(f"<b>{_pdf_text(label)}</b>", small), Paragraph(_pdf_text(value), small), Spacer(1, 3*mm)]
+    story += [
+        Spacer(1, 3*mm),
+        Paragraph("DECLARATION AND ELECTRONIC SIGNATURE", h),
+        Paragraph(
+            "I confirm that the information provided is complete and accurate and understand that it will be used by Puppy Fosters - Algarve to assess this adoption application. I have read the Privacy Policy.",
+            small,
+        ),
+        Spacer(1, 3*mm),
+        Paragraph(f"Electronically signed by: <b>{_pdf_text(signed_name)}</b>", small),
+        Paragraph(f"Submitted: <b>{_pdf_text(submitted_at)}</b>", small),
+        Spacer(1, 5*mm),
+        Paragraph("Puppy Fosters - Algarve | Adopter's Questionnaire", small),
+    ]
+    doc.build(story)
+    return buf.getvalue()
+
+
+def _save_questionnaire_submission(pending):
+    app_id = int(pending["adoption_application_id"])
+    supporter_id = int(pending["supporter_id"])
+    dog_id = int(pending["dog_id"])
+    contact = pending["contact"]
+    qdata = pending["questionnaire"]
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Contact details are part of the questionnaire and may legitimately update the supporter record.
+    supabase.table("V2_Supporter").update({
+        "First_Name": contact["first_name"],
+        "Last_Name": contact["last_name"],
+        "Address": contact["address"],
+        "Phone_Code": contact["phone_code"],
+        "Phone_Number": contact["phone_number"],
+        "Email": contact["email"],
+        "Updated_By": "Public questionnaire",
+        "Updated_At": now,
+    }).eq("Supporter_ID", supporter_id).execute()
+
+    profile_payload = {"Supporter_ID": supporter_id}
+    for public_key, db_key in QUESTIONNAIRE_PROFILE_MAP.items():
+        profile_payload[db_key] = qdata.get(public_key)
+    profile_payload["Notes"] = qdata.get("notes") or None
+    supabase.table("V2_Adopter_Profile").upsert(
+        profile_payload, on_conflict="Supporter_ID"
+    ).execute()
+
+    existing_docs = (
+        supabase.table("V2_Supporter_Document")
+        .select("Supporter_Document_ID,Storage_Path")
+        .eq("Adoption_Application_ID", app_id)
+        .eq("Document_Type", "Adoption Questionnaire")
+        .order("Uploaded_At", desc=True)
+        .limit(1).execute().data or []
+    )
+    if existing_docs:
+        doc_id = int(existing_docs[0]["Supporter_Document_ID"])
+    else:
+        pdf_bytes = _questionnaire_pdf_bytes(
+            pending.get("dog_name"), contact, qdata,
+            pending.get("signed_name"), pending.get("submitted_at"),
+        )
+        filename = f"{pending.get('dog_name') or 'Dog'}-Adoption-Questionnaire-{date.today().isoformat()}.pdf"
+        path = f"v2/supporters/{supporter_id}/adoption-applications/{app_id}/{secrets.token_hex(8)}-{_safe_filename(filename)}"
+        supabase.storage.from_(DOCUMENT_BUCKET).upload(
+            path=path, file=pdf_bytes,
+            file_options={"content-type":"application/pdf", "cache-control":"3600", "upsert":"false"},
+        )
+        try:
+            rows = supabase.table("V2_Supporter_Document").insert({
+                "Supporter_ID": supporter_id,
+                "Role_Type": "Adopter",
+                "Document_Type": "Adoption Questionnaire",
+                "File_Name": filename,
+                "Storage_Path": path,
+                "Mime_Type": "application/pdf",
+                "Notes": "Completed online via the Puppy Fosters - Algarve public questionnaire.",
+                "Dog_ID": dog_id,
+                "Adoption_Application_ID": app_id,
+                "Uploaded_By": "Public questionnaire",
+            }).execute().data or []
+            if not rows:
+                raise RuntimeError("Questionnaire document index was not created.")
+            doc_id = int(rows[0]["Supporter_Document_ID"])
+        except Exception:
+            try:
+                supabase.storage.from_(DOCUMENT_BUCKET).remove([path])
+            except Exception:
+                pass
+            raise
+
+    supabase.table("V2_Adoption_Application").update({
+        "Questionnaire_Document_ID": doc_id,
+        "Questionnaire_Received_Date": date.today().isoformat(),
+        "Status": "Questionnaire Received",
+        "Updated_By": "Public questionnaire",
+        "Updated_At": now,
+    }).eq("Adoption_Application_ID", app_id).execute()
+
+    supabase.table("Supporter_Invite").update({
+        "Use_Count": int(pending.get("invite_use_count") or 0) + 1,
+        "Active": False,
+    }).eq("Invite_ID", int(pending["invite_id"])).execute()
+
+
+def _render_questionnaire_only_form(invite, app, supporter, dog):
+    profile = _profile_for_supporter(supporter["Supporter_ID"])
+    st.markdown("<div class='pfpa-section'>Adoption questionnaire</div>", unsafe_allow_html=True)
+    st.info(
+        f"This questionnaire is for **{dog.get('Name') or 'the selected dog'}**. "
+        "Every question is mandatory. Your submitted answers and electronic signature will be stored as a printable PDF in the adoption record."
+    )
+    with st.form("online_adoption_questionnaire"):
+        st.markdown("#### Your details")
+        c1, c2 = st.columns(2)
+        first_name = c1.text_input("First name *", value=supporter.get("First_Name") or "")
+        last_name = c2.text_input("Last name *", value=supporter.get("Last_Name") or "")
+        address = st.text_area("Address *", value=supporter.get("Address") or "")
+        current_code = supporter.get("Phone_Code") or "+351"
+        code_display = next((x for x in CALLING_CODES if x.startswith(current_code + " ")), "+351 PT")
+        c1, c2 = st.columns(2)
+        phone_code = c1.selectbox("Country code *", CALLING_CODES, index=CALLING_CODES.index(code_display) if code_display in CALLING_CODES else 0)
+        phone_number = c2.text_input("Phone number *", value=supporter.get("Phone_Number") or "")
+        email = st.text_input("Email address *", value=supporter.get("Email") or invite.get("Email") or "")
+
+        st.markdown("#### About you, your home and your lifestyle")
+        household = st.text_area("Tell us a bit about yourself and your household *", value=profile.get("Household") or "")
+        children = st.text_area("Do you have children? Ages? *", value=profile.get("Children") or "", placeholder="If none, enter 'None'.")
+        current_pets = st.text_area("Do you currently have pets? What type and ages? *", value=profile.get("Current_Pets") or "", placeholder="If none, enter 'None'.")
+        house_opts = ["", "House", "Apartment", "Other"]
+        current_house = profile.get("House_Type") or ""
+        if current_house and current_house not in house_opts: house_opts.insert(1, current_house)
+        house_type = st.selectbox("Do you live in a house or apartment? *", house_opts, index=house_opts.index(current_house) if current_house in house_opts else 0)
+        own_opts = ["", "Own", "Rent", "Other"]
+        current_own = profile.get("Rent_Own") or ""
+        if current_own and current_own not in own_opts: own_opts.insert(1, current_own)
+        rent_own = st.selectbox("Do you rent or own? *", own_opts, index=own_opts.index(current_own) if current_own in own_opts else 0)
+        po = profile.get("Private_Outdoor")
+        outdoor_choice = st.selectbox("Do you have an enclosed private outdoor space? *", ["", "Yes", "No"], index=1 if po is True else 2 if po is False else 0)
+        outdoor_description = st.text_area("What type of outdoor space do you have, and is it fenced / secure? *", value=profile.get("Outdoor_Description") or "", help="If you have no private outdoor space, state that here.")
+        dog_experience = st.text_area("Have you raised a puppy before, or do you have other experience with dogs? Please describe. *", value=profile.get("Dog_Experience") or "")
+        exercise_training = st.text_area("What is your exercise plan for the puppy, and your thoughts about training? *", value=profile.get("Exercise_Training") or "")
+        preventative_care = st.text_area("How do you feel about sterilisation, regular vaccines, deworming and flea/tick prevention? *", value=profile.get("Preventative_Care") or "")
+        schedule_alone = st.text_area("What is your schedule during the day - how long will the puppy be home alone? *", value=profile.get("Schedule_Alone") or "")
+        sleep_arrangements = st.text_area("Where will the puppy sleep at night, and stay when no one is home? *", value=profile.get("Sleep_Arrangements") or "")
+        vacation_plans = st.text_area("Any vacation plans coming up? *", value=profile.get("Vacation_Plans") or "", placeholder="If none, enter 'None'.")
+        travel_petsitting = st.text_area("When you travel, where will the puppy be if not travelling with you? What would you do for pet-sitting or boarding? *", value=profile.get("Travel_Petsitting") or "")
+        future_changes = st.text_area("If your housing, work, or family situation changes in the future, what would that mean for your dog? *", value=profile.get("Future_Changes") or "")
+        notes = st.text_area("Additional adoption notes (optional)", value=profile.get("Notes") or "")
+
+        st.markdown("#### Data protection and declaration")
+        st.write(DATA_PROTECTION)
+        consent = st.checkbox("I have read and agree to the Data Protection statement. *")
+        declaration = st.checkbox("I confirm that the information supplied is complete and accurate to the best of my knowledge. *")
+        signed_name = st.text_input("Electronic signature - type your full name *", value=f"{supporter.get('First_Name','')} {supporter.get('Last_Name','')}".strip())
+        submit = st.form_submit_button("Continue to secure submission", type="primary", width="stretch")
+
+    if submit:
+        qdata = {
+            "household": household, "children": children, "current_pets": current_pets,
+            "house_type": house_type, "rent_own": rent_own,
+            "private_outdoor": True if outdoor_choice == "Yes" else False if outdoor_choice == "No" else None,
+            "outdoor_description": outdoor_description, "dog_experience": dog_experience,
+            "exercise_training": exercise_training, "preventative_care": preventative_care,
+            "schedule_alone": schedule_alone, "sleep_arrangements": sleep_arrangements,
+            "vacation_plans": vacation_plans, "travel_petsitting": travel_petsitting,
+            "future_changes": future_changes, "notes": notes,
+            "completed_by": signed_name, "completed_at": date.today().isoformat(),
+        }
+        required = [
+            ("First name", first_name), ("Last name", last_name), ("Address", address),
+            ("Phone", phone_number), ("Email", email),
+            ("Home and household", household), ("Children", children), ("Current pets", current_pets),
+            ("House type", house_type), ("Rent / own", rent_own), ("Outdoor description", outdoor_description),
+            ("Dog experience", dog_experience), ("Exercise / training", exercise_training),
+            ("Preventative care", preventative_care), ("Daily schedule / time alone", schedule_alone),
+            ("Sleeping arrangements", sleep_arrangements), ("Vacation plans", vacation_plans),
+            ("Travel / pet-sitting", travel_petsitting), ("Future changes", future_changes),
+            ("Electronic signature", signed_name),
+        ]
+        errors = [f"{label} is required." for label, value in required if not _clean(value)]
+        if not _valid_email(email): errors.append("Please enter a valid email address.")
+        if qdata["private_outdoor"] not in (True, False): errors.append("Private outdoor space must be answered Yes or No.")
+        if not consent: errors.append("Data Protection acceptance is required.")
+        if not declaration: errors.append("The accuracy declaration is required.")
+        if errors:
+            for e in errors: st.error(e)
+        else:
+            st.session_state["pending_questionnaire_submission"] = {
+                "invite_id": invite["Invite_ID"],
+                "invite_use_count": int(invite.get("Use_Count") or 0),
+                "adoption_application_id": int(app["Adoption_Application_ID"]),
+                "supporter_id": int(supporter["Supporter_ID"]),
+                "dog_id": int(dog["Dog_ID"]),
+                "dog_name": dog.get("Name") or "Dog",
+                "contact": {
+                    "first_name": _clean(first_name), "last_name": _clean(last_name),
+                    "address": _clean(address), "phone_code": clean_phone_code(phone_code),
+                    "phone_number": _clean(phone_number), "email": _clean_email(email),
+                },
+                "questionnaire": {k: (_clean(v) if isinstance(v, str) else v) for k,v in qdata.items()},
+                "signed_name": _clean(signed_name),
+                "submitted_at": datetime.now(timezone.utc).strftime("%d %b %Y %H:%M UTC"),
+            }
+            st.session_state["turnstile_version"] = int(st.session_state.get("turnstile_version", 0)) + 1
+            st.rerun()
+
+
+# Show questionnaire success before re-validating the consumed one-use link.
+if st.session_state.get("questionnaire_submit_success"):
+    dog_name = st.session_state.pop("questionnaire_submit_success")
+    st.success("Thank you - your adoption questionnaire has been received.")
+    st.markdown(
+        f"<div class='pfpa-note'>Your questionnaire for <strong>{dog_name}</strong> has been submitted securely. "
+        "Puppy Fosters - Algarve will review it and contact you about the next stage.</div>",
+        unsafe_allow_html=True,
+    )
+    st.stop()
+
+
 # Show success before re-validating a one-use invitation that has just been consumed.
 if st.session_state.get("supporter_submit_success"):
     ref = st.session_state["supporter_submit_success"]
@@ -597,10 +937,87 @@ if invited_dog and not _dog_accepts_adoption_requests(invited_dog):
     )
     st.stop()
 
+questionnaire_application, questionnaire_supporter = _questionnaire_invite_context(invite)
+questionnaire_mode = bool(questionnaire_application)
+if invite.get("Adoption_Application_ID") and not questionnaire_mode:
+    st.error("This adoption-questionnaire link is no longer valid. Please contact Puppy Fosters - Algarve.")
+    st.stop()
+if questionnaire_mode:
+    if not invited_dog or int(questionnaire_application.get("Dog_ID") or 0) != int(invited_dog.get("Dog_ID") or 0):
+        st.error("This questionnaire link does not match the adoption application. Please contact Puppy Fosters - Algarve.")
+        st.stop()
+    if not questionnaire_supporter or int(questionnaire_application.get("Supporter_ID") or 0) != int(questionnaire_supporter.get("Supporter_ID") or 0):
+        st.error("The supporter record linked to this questionnaire could not be found.")
+        st.stop()
+    if str(questionnaire_application.get("Status") or "") in {"Rejected", "Withdrawn", "Completed"}:
+        st.info("This adoption application is closed. Please contact Puppy Fosters - Algarve if you need assistance.")
+        st.stop()
+
 
 # ---------------------------------------------------------------------
 # SECURE SUBMISSION STAGE
 # ---------------------------------------------------------------------
+questionnaire_pending = st.session_state.get("pending_questionnaire_submission")
+
+if questionnaire_pending:
+    st.markdown("<div class='pfpa-section'>Secure submission</div>", unsafe_allow_html=True)
+    st.info("Your questionnaire has been checked but has not yet been submitted. Complete the Cloudflare security check below.")
+    if st.session_state.get("turnstile_error"):
+        st.error(st.session_state.pop("turnstile_error"))
+    version = int(st.session_state.get("turnstile_version", 0))
+    component_key = f"pfpa_q_turnstile_{version}"
+    turnstile_result = turnstile_component(
+        data={"sitekey": TURNSTILE_SITE_KEY}, default={"token": ""},
+        on_token_change=lambda: None, key=component_key, width="stretch", height=120,
+    )
+    turnstile_token = getattr(turnstile_result, "token", "") or ""
+    if turnstile_token:
+        valid_turnstile, _ = _verify_turnstile(turnstile_token)
+        if not valid_turnstile:
+            st.session_state["turnstile_error"] = "The security check could not be validated. Please complete it again."
+            st.session_state["turnstile_version"] = version + 1
+            st.rerun()
+        try:
+            _save_questionnaire_submission(questionnaire_pending)
+            admin_email = _secret("APPLICATION_NOTIFICATION_EMAIL")
+            _send_email(
+                admin_email,
+                f"Adoption questionnaire received - {questionnaire_pending['dog_name']}",
+                (
+                    f"A completed adoption questionnaire has been received.\n\n"
+                    f"Dog: {questionnaire_pending['dog_name']}\n"
+                    f"Applicant: {questionnaire_pending['contact']['first_name']} {questionnaire_pending['contact']['last_name']}\n"
+                    f"Adoption application ID: {questionnaire_pending['adoption_application_id']}\n\n"
+                    "Review it in the private Puppy Fosters - Algarve Applications page."
+                ),
+            )
+            _send_email(
+                questionnaire_pending["contact"]["email"],
+                f"Puppy Fosters - Algarve - questionnaire received for {questionnaire_pending['dog_name']}",
+                (
+                    f"Hello {questionnaire_pending['contact']['first_name']},\n\n"
+                    f"Thank you. We have received your adoption questionnaire for {questionnaire_pending['dog_name']}. "
+                    "The Puppy Fosters - Algarve team will review it and contact you about the next stage.\n\n"
+                    "Kind regards,\nPuppy Fosters - Algarve"
+                ),
+            )
+            st.session_state.pop("pending_questionnaire_submission", None)
+            st.session_state["questionnaire_submit_success"] = questionnaire_pending["dog_name"]
+            st.rerun()
+        except Exception:
+            st.session_state["turnstile_error"] = (
+                "The security check passed, but the questionnaire could not be saved. "
+                "Please complete the fresh security check and try again."
+            )
+            st.session_state["turnstile_version"] = version + 1
+            st.rerun()
+    if st.button("← Edit questionnaire", width="stretch"):
+        st.session_state.pop("pending_questionnaire_submission", None)
+        st.session_state["turnstile_version"] = version + 1
+        st.rerun()
+    st.stop()
+
+
 pending = st.session_state.get("pending_supporter_submission")
 
 if pending:
@@ -660,30 +1077,27 @@ if pending:
                     role_payload["Related_Dog_ID"] = int(pending["dog_id"])
                 supabase.table("V2_Application_Role").insert(role_payload).execute()
 
-            questionnaire = pending.get("questionnaire")
-            if questionnaire:
-                storage_path = (
-                    f"v2/applications/{app_id}/"
-                    f"{secrets.token_hex(8)}-{_safe_filename(questionnaire['name'])}"
+            if "Adopter" in pending["roles"] and pending.get("dog_id"):
+                qdata = pending["role_data"].get("Adopter") or {}
+                contact = pending["application_payload"].get("Common_Data") or {}
+                filename = f"{pending.get('dog_name') or 'Dog'}-Adoption-Questionnaire-{date.today().isoformat()}.pdf"
+                pdf_bytes = _questionnaire_pdf_bytes(
+                    pending.get("dog_name"), contact, qdata,
+                    pending["application_payload"].get("Signed_Name"),
+                    datetime.now(timezone.utc).strftime("%d %b %Y %H:%M UTC"),
                 )
+                storage_path = f"v2/applications/{app_id}/{secrets.token_hex(8)}-{_safe_filename(filename)}"
                 storage = supabase.storage.from_(DOCUMENT_BUCKET)
                 storage.upload(
-                    path=storage_path,
-                    file=questionnaire["data"],
-                    file_options={
-                        "content-type": "application/pdf",
-                        "cache-control": "3600",
-                        "upsert": "false",
-                    },
+                    path=storage_path, file=pdf_bytes,
+                    file_options={"content-type":"application/pdf", "cache-control":"3600", "upsert":"false"},
                 )
                 supabase.table("V2_Application_Document").insert({
-                    "Application_ID": app_id,
-                    "Role_Type": "Adopter",
-                    "Dog_ID": int(pending["dog_id"]) if pending.get("dog_id") else None,
+                    "Application_ID": app_id, "Role_Type": "Adopter",
+                    "Dog_ID": int(pending["dog_id"]),
                     "Document_Type": "Adoption Questionnaire",
-                    "File_Name": questionnaire["name"],
-                    "Storage_Path": storage_path,
-                    "Mime_Type": questionnaire.get("type") or "application/pdf",
+                    "File_Name": filename, "Storage_Path": storage_path,
+                    "Mime_Type": "application/pdf",
                 }).execute()
 
             # Consume the invitation only after the V2 application, role rows and
@@ -775,6 +1189,11 @@ if pending:
     st.stop()
 
 
+if questionnaire_mode:
+    _render_questionnaire_only_form(invite, questionnaire_application, questionnaire_supporter, invited_dog)
+    st.stop()
+
+
 st.markdown(
     "<div class='pfpa-note'>You only need to enter your personal details once. "
     "The roles available below are those included in your invitation.</div>",
@@ -813,31 +1232,14 @@ if not roles:
 
 
 # ---------------------------------------------------------------------
-# ADOPTION QUESTIONNAIRE DOWNLOAD
+# ADOPTION QUESTIONNAIRE
 # ---------------------------------------------------------------------
-# Streamlit does not permit download buttons inside st.form(), so the
-# questionnaire download is deliberately rendered before the form.
 if "Adopter" in roles and invited_dog:
     st.markdown("<div class='pfpa-section'>Adoption questionnaire</div>", unsafe_allow_html=True)
-    st.write(
-        f"This invitation is for **{invited_dog.get('Name') or 'the selected dog'}**. "
-        "Download the questionnaire, complete and sign it, then upload the completed PDF "
-        "in the Adoption section below."
+    st.info(
+        f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**. "
+        "Complete every questionnaire field online below. A printable PDF copy will be generated automatically when you submit."
     )
-    if QUESTIONNAIRE_PATH.exists():
-        st.download_button(
-            "⬇️ Download Adoption Questionnaire",
-            data=QUESTIONNAIRE_PATH.read_bytes(),
-            file_name="Puppy Fosters - Algarve Adoption Questionnaire EN.pdf",
-            mime="application/pdf",
-            width="stretch",
-            key="download_adoption_questionnaire",
-        )
-    else:
-        st.error(
-            "The adoption questionnaire file is temporarily unavailable. "
-            "Please contact Puppy Fosters before submitting."
-        )
 
 
 # ---------------------------------------------------------------------
@@ -905,13 +1307,11 @@ with st.form("supporter_application_form"):
         foster_data["notes"] = st.text_area("Fostering notes (optional)")
 
     adopter_data = {}
-    questionnaire = None
     if "Adopter" in roles:
         st.markdown("<div class='pfpa-section'>Adopter questionnaire</div>", unsafe_allow_html=True)
         st.info(
             f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**. "
-            "Every questionnaire question below is mandatory. You must also upload the completed "
-            "and signed questionnaire PDF."
+            "Every questionnaire question below is mandatory. A printable PDF copy will be created automatically from your submitted answers."
         )
 
         adopter_data["household"] = st.text_area(
@@ -979,11 +1379,6 @@ with st.form("supporter_application_form"):
             value=f"{first_name} {last_name}".strip(),
         )
         adopter_data["completed_at"] = date.today().isoformat()
-
-        questionnaire = st.file_uploader(
-            "Completed and signed adoption questionnaire PDF *",
-            type=["pdf"],
-        )
 
     st.markdown("<div class='pfpa-section'>Data protection and declaration</div>", unsafe_allow_html=True)
     st.write(DATA_PROTECTION)
@@ -1057,15 +1452,6 @@ if submitted:
         if adopter_data.get("private_outdoor") not in (True, False):
             errors.append("Private outdoor space must be answered Yes or No.")
 
-    if "Adopter" in roles and questionnaire is None:
-        errors.append("Upload the completed and signed adoption questionnaire PDF.")
-
-    if questionnaire is not None:
-        if not questionnaire.name.lower().endswith(".pdf"):
-            errors.append("The adoption questionnaire must be a PDF.")
-        elif not questionnaire.getvalue():
-            errors.append("The uploaded questionnaire is empty.")
-
     if not consent:
         errors.append("Data Protection acceptance is required.")
     if not declaration:
@@ -1112,14 +1498,6 @@ if submitted:
             "Confirmation_Sent": False,
         }
 
-        q_payload = None
-        if questionnaire is not None:
-            q_payload = {
-                "name": questionnaire.name,
-                "type": questionnaire.type or "application/pdf",
-                "data": questionnaire.getvalue(),
-            }
-
         st.session_state["pending_supporter_submission"] = {
             "application_payload": application_payload,
             "role_data": role_data,
@@ -1132,7 +1510,6 @@ if submitted:
             "reference": reference,
             "dog_id": int(invited_dog["Dog_ID"]) if invited_dog else None,
             "dog_name": invited_dog.get("Name") if invited_dog else None,
-            "questionnaire": q_payload,
         }
         st.session_state["turnstile_version"] = int(
             st.session_state.get("turnstile_version", 0)
