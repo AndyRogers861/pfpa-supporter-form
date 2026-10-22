@@ -18,6 +18,7 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib import colors
+from pypdf import PdfReader, PdfWriter
 from public_lookups import CALLING_CODES, COUNTRIES, clean_phone_code
 
 
@@ -578,6 +579,8 @@ QUESTIONNAIRE_PROFILE_MAP = {
 
 
 def _questionnaire_invite_context(invite):
+    if str(invite.get("Invite_Purpose") or "") == "Adoption Contract":
+        return None, None
     app_id = invite.get("Adoption_Application_ID")
     if not app_id:
         return None, None
@@ -598,6 +601,213 @@ def _questionnaire_invite_context(invite):
         .limit(1).execute().data or []
     )
     return app, (supporters[0] if supporters else None)
+
+
+
+CONTRACT_TEMPLATE = Path(__file__).resolve().parent / "assets" / "BlankAdoptionContract.pdf"
+CONTRACT_TERMS = [
+    "I agree to keep an identification tag attached to a properly fitted collar which will remain on the adopted animal at all times, whether inside or outside of the house, and to obtain all necessary local licences including microchipping.",
+    "I agree to have the dog sterilised at the appropriate age as advised by my veterinary surgeon and to provide proof of sterilisation to Puppy Fosters - Algarve on request.",
+    "I agree to provide the adopted dog with necessary vaccinations at the intervals advised by my veterinary surgeon.",
+    "I agree to have the adopted dog under my control when it is not within the confines of my property. The adopted dog will not be tied or chained.",
+    "If for any reason I cannot keep the adopted dog, I agree to notify Puppy Fosters - Algarve and return the adopted dog upon request. The dog shall not be sold on or used for purposes other than as a family pet.",
+    "I agree to properly care for the dog, provide adequate food, water, training and sufficient exercise for optimum health, and consult a veterinary surgeon in the case of sickness, injury or accident and carry out necessary treatment.",
+    "I agree not to abuse or neglect the adopted dog.",
+    "I understand that the dog covered by this adoption agreement is, as far as can reasonably be determined, in good health and that Puppy Fosters - Algarve is not responsible for medical fees incurred after the adoption date.",
+    "With effect from the date and time of signature of this adoption agreement, I accept and assume full and sole responsibility for the care, custody, control, supervision and welfare of the dog, including related liability, whether or not the microchip/SIAC registration has by then been transferred into my name.",
+    "I understand that failure to perform the foregoing agreement constitutes a breach of contract and may result in Puppy Fosters - Algarve reclaiming possession of the adopted dog.",
+    "I will not euthanise the dog without contacting Puppy Fosters - Algarve except where an emergency veterinary surgeon considers euthanasia necessary to end suffering.",
+    "I agree to provide Puppy Fosters - Algarve with an update on how the adopted dog is doing during the two weeks following adoption.",
+    "I understand that a €90 adoption donation is requested.",
+]
+
+
+def _contract_invite_context(invite):
+    if str(invite.get("Invite_Purpose") or "") != "Adoption Contract":
+        return None, None
+    app_id = invite.get("Adoption_Application_ID")
+    if not app_id:
+        return None, None
+    apps = (
+        supabase.table("V2_Adoption_Application").select("*")
+        .eq("Adoption_Application_ID", int(app_id)).limit(1).execute().data or []
+    )
+    if not apps:
+        return None, None
+    app = apps[0]
+    supporters = (
+        supabase.table("V2_Supporter").select("*")
+        .eq("Supporter_ID", int(app["Supporter_ID"]))
+        .eq("is_deleted", False).limit(1).execute().data or []
+    )
+    return app, (supporters[0] if supporters else None)
+
+
+def _current_foster_supporter_public(dog_id):
+    rows = (
+        supabase.table("V2_Dog_Foster").select("Supporter_ID,Start_Date,End_Date")
+        .eq("Dog_ID", int(dog_id)).is_("End_Date", "null")
+        .order("Start_Date", desc=True).limit(1).execute().data or []
+    )
+    if not rows:
+        return {}
+    supporters = (
+        supabase.table("V2_Supporter").select("*")
+        .eq("Supporter_ID", int(rows[0]["Supporter_ID"]))
+        .eq("is_deleted", False).limit(1).execute().data or []
+    )
+    return supporters[0] if supporters else {}
+
+
+def _person_name(person):
+    return " ".join(
+        x for x in [person.get("First_Name"), person.get("Last_Name")]
+        if str(x or "").strip()
+    ).strip()
+
+
+def _contract_pdf_bytes(app, supporter, dog, foster, adoption_date, adopter_signature, issuer):
+    if not CONTRACT_TEMPLATE.exists():
+        raise RuntimeError("The adoption contract template is unavailable. Please contact Puppy Fosters - Algarve.")
+    reader = PdfReader(str(CONTRACT_TEMPLATE))
+    writer = PdfWriter()
+    writer.append(reader)
+    fields = reader.get_fields() or {}
+    def digits(v): return re.sub(r"\D", "", str(v or ""))
+    def phone_code(v):
+        d=digits(v)
+        return f"+{d}" if d else ""
+    def fmt_date(v):
+        try:
+            return date.fromisoformat(str(v)[:10]).strftime("%d %b %Y")
+        except Exception:
+            return str(v or "")
+    values = {
+        "date_of_adoption": fmt_date(adoption_date),
+        "foster_carer_name": _person_name(foster),
+        "foster_carer_address": foster.get("Address") or "",
+        "foster_carer_country": foster.get("Country") or "",
+        "foster_carer_phone_code": phone_code(foster.get("Phone_Code")),
+        "foster_carer_phone_number": digits(foster.get("Phone_Number")),
+        "dog_name": dog.get("Name") or "",
+        "dog_sex": dog.get("Gender") or "",
+        "dog_dob": fmt_date(dog.get("Date_of_Birth")),
+        "dog_chip_no": dog.get("Microchip_Number") or "",
+        "dog_description": dog.get("Colour_Description") or "",
+        "adopter_name": _person_name(supporter),
+        "adopter_address": supporter.get("Address") or "",
+        "adopter_country": supporter.get("Country") or "",
+        "adopter_phone_code": phone_code(supporter.get("Phone_Code")),
+        "adopter_phone_number": digits(supporter.get("Phone_Number")),
+        "adopter_email": supporter.get("Email") or "",
+        "foster_carer_signature": f"Electronically approved by {issuer}" if issuer else "Puppy Fosters - Algarve",
+        "adopter_signature": f"Electronically signed by {adopter_signature}",
+        "foster_carer_sign_date": fmt_date(date.today().isoformat()),
+        "adopter_sign_date": fmt_date(date.today().isoformat()),
+    }
+    form_values = {k:("" if values.get(k) in (None,"") else str(values.get(k))) for k in fields if k in values}
+    for page in writer.pages:
+        writer.update_page_form_field_values(page, form_values)
+    buf=io.BytesIO(); writer.write(buf); return buf.getvalue()
+
+
+def _save_contract_submission(pending):
+    app_id=int(pending["adoption_application_id"]); supporter_id=int(pending["supporter_id"]); dog_id=int(pending["dog_id"])
+    apps=(supabase.table("V2_Adoption_Application").select("*").eq("Adoption_Application_ID",app_id).limit(1).execute().data or [])
+    if not apps: raise RuntimeError("The adoption application could not be found.")
+    app=apps[0]
+    supporters=(supabase.table("V2_Supporter").select("*").eq("Supporter_ID",supporter_id).limit(1).execute().data or [])
+    dogs=(supabase.table("V2_Dog").select("*").eq("Dog_ID",dog_id).limit(1).execute().data or [])
+    if not supporters or not dogs: raise RuntimeError("The adopter or dog record could not be found.")
+    supporter=supporters[0]; dog=dogs[0]; foster=_current_foster_supporter_public(dog_id)
+    now=datetime.now(timezone.utc).isoformat()
+    # Keep supporter contract contact information current.
+    supabase.table("V2_Supporter").update({
+        "Address": pending["address"], "Country": pending["country"],
+        "Phone_Code": pending["phone_code"], "Phone_Number": pending["phone_number"],
+        "Email": pending["email"], "Updated_By": "Public adoption contract", "Updated_At": now,
+    }).eq("Supporter_ID",supporter_id).execute()
+    supporter.update({"Address":pending["address"],"Country":pending["country"],"Phone_Code":pending["phone_code"],"Phone_Number":pending["phone_number"],"Email":pending["email"]})
+    pdf_bytes=_contract_pdf_bytes(app,supporter,dog,foster,pending["adoption_date"],pending["signed_name"],pending.get("issued_by"))
+    filename=f"{dog.get('Name') or 'Dog'}-Adoption-Contract-Signed-{date.today().isoformat()}.pdf"
+    path=f"v2/supporters/{supporter_id}/adoption-applications/{app_id}/{secrets.token_hex(8)}-{_safe_filename(filename)}"
+    supabase.storage.from_(DOCUMENT_BUCKET).upload(path=path,file=pdf_bytes,file_options={"content-type":"application/pdf","cache-control":"3600","upsert":"false"})
+    try:
+        rows=supabase.table("V2_Supporter_Document").insert({
+            "Supporter_ID":supporter_id,"Role_Type":"Adopter","Document_Type":"Adoption Contract - Signed",
+            "File_Name":filename,"Storage_Path":path,"Mime_Type":"application/pdf",
+            "Notes":"Electronically signed online via the Puppy Fosters - Algarve public contract form.",
+            "Dog_ID":dog_id,"Adoption_Application_ID":app_id,"Uploaded_By":"Public adoption contract",
+        }).execute().data or []
+        if not rows: raise RuntimeError("The signed contract document index was not created.")
+        doc_id=int(rows[0]["Supporter_Document_ID"])
+    except Exception:
+        try: supabase.storage.from_(DOCUMENT_BUCKET).remove([path])
+        except Exception: pass
+        raise
+    supabase.table("V2_Adoption_Application").update({
+        "Contract_Document_ID":doc_id,"Contract_Signed_Date":date.today().isoformat(),
+        "Status":"Contract Signed","Updated_By":"Public adoption contract","Updated_At":now,
+    }).eq("Adoption_Application_ID",app_id).execute()
+    supabase.table("Supporter_Invite").update({
+        "Use_Count":int(pending.get("invite_use_count") or 0)+1,"Active":False,
+    }).eq("Invite_ID",int(pending["invite_id"])).execute()
+    return filename,pdf_bytes
+
+
+def _render_contract_form(invite, app, supporter, dog):
+    foster=_current_foster_supporter_public(dog["Dog_ID"])
+    st.markdown("<div class='pfpa-section'>Adoption contract</div>",unsafe_allow_html=True)
+    st.info(
+        f"This contract is for **{dog.get('Name') or 'the selected dog'}**. Review the pre-filled details and all contract provisions before electronically signing. A printable signed PDF will be generated automatically after submission."
+    )
+    st.markdown("#### Contract details")
+    st.write(f"**Dog:** {dog.get('Name') or ''} — {dog.get('Gender') or ''}")
+    st.write(f"**Microchip:** {dog.get('Microchip_Number') or 'Not recorded'}")
+    if foster:
+        st.write(f"**Current foster carer / Puppy Fosters contact:** {_person_name(foster)}")
+    else:
+        st.caption("No current foster carer is recorded; the Foster Carer details on the archived contract will remain blank.")
+    with st.form("online_adoption_contract"):
+        adoption_date=st.date_input("Adoption / trial commencement date *",value=date.today(),format="DD/MM/YYYY")
+        st.markdown("#### Adopter details")
+        st.text_input("Name",value=_person_name(supporter),disabled=True)
+        address=st.text_area("Address *",value=supporter.get("Address") or "")
+        country=st.selectbox("Country *",COUNTRIES,index=COUNTRIES.index(supporter.get("Country")) if supporter.get("Country") in COUNTRIES else (COUNTRIES.index("Portugal") if "Portugal" in COUNTRIES else 0))
+        current_code=supporter.get("Phone_Code") or "+351"
+        code_display=next((x for x in CALLING_CODES if x.startswith(current_code+" ")), "+351 PT")
+        c1,c2=st.columns(2)
+        phone_code=c1.selectbox("Country code *",CALLING_CODES,index=CALLING_CODES.index(code_display) if code_display in CALLING_CODES else 0)
+        phone_number=c2.text_input("Phone number *",value=supporter.get("Phone_Number") or "")
+        email=st.text_input("Email address *",value=supporter.get("Email") or invite.get("Email") or "")
+        st.markdown("#### Contract provisions")
+        for i,term in enumerate(CONTRACT_TERMS,1): st.markdown(f"**{i}.** {term}")
+        st.markdown("#### Data protection and electronic signature")
+        st.write(DATA_PROTECTION)
+        accept_terms=st.checkbox("I have read and agree to all provisions of this adoption contract. *")
+        privacy=st.checkbox("I have read and agree to the Data Protection statement and Privacy Policy. *")
+        declaration=st.checkbox("I confirm that the pre-filled details above are accurate and that I intend my typed name below to act as my electronic signature. *")
+        signed_name=st.text_input("Electronic signature - type your full name *",value=_person_name(supporter))
+        submit=st.form_submit_button("Continue to secure signing",type="primary",width="stretch")
+    if submit:
+        errors=[]
+        for label,val in [("Adoption date",adoption_date),("Address",address),("Country",country),("Phone number",phone_number),("Email",email),("Electronic signature",signed_name)]:
+            if not str(val or "").strip(): errors.append(f"{label} is required.")
+        if email and not _valid_email(email): errors.append("Please enter a valid email address.")
+        if not accept_terms: errors.append("You must accept the adoption contract provisions.")
+        if not privacy: errors.append("Data Protection acceptance is required.")
+        if not declaration: errors.append("Electronic-signature confirmation is required.")
+        if errors:
+            for e in errors: st.error(e)
+        else:
+            st.session_state["pending_contract_submission"]={
+                "invite_id":invite["Invite_ID"],"invite_use_count":invite.get("Use_Count") or 0,
+                "adoption_application_id":int(app["Adoption_Application_ID"]),"supporter_id":int(supporter["Supporter_ID"]),"dog_id":int(dog["Dog_ID"]),
+                "dog_name":dog.get("Name") or "Dog","adoption_date":adoption_date.isoformat(),
+                "address":_clean(address),"country":_clean(country),"phone_code":clean_phone_code(phone_code),"phone_number":_clean(phone_number),"email":_clean_email(email),
+                "signed_name":_clean(signed_name),"issued_by":invite.get("Created_By") or "Puppy Fosters - Algarve",
+            }
+            st.rerun()
 
 
 def _profile_for_supporter(supporter_id):
@@ -876,6 +1086,16 @@ def _render_questionnaire_only_form(invite, app, supporter, dog):
             st.rerun()
 
 
+# Show contract success before re-validating the consumed one-use link.
+if st.session_state.get("contract_submit_success"):
+    dog_name = st.session_state.pop("contract_submit_success")
+    st.success("Thank you - your adoption contract has been signed and received.")
+    st.markdown(
+        f"<div class='pfpa-note'>Your electronically signed adoption contract for <strong>{dog_name}</strong> has been submitted securely. Puppy Fosters - Algarve will contact you about the next step.</div>",
+        unsafe_allow_html=True,
+    )
+    st.stop()
+
 # Show questionnaire success before re-validating the consumed one-use link.
 if st.session_state.get("questionnaire_submit_success"):
     dog_name = st.session_state.pop("questionnaire_submit_success")
@@ -938,25 +1158,66 @@ if invited_dog and not _dog_accepts_adoption_requests(invited_dog):
     st.stop()
 
 questionnaire_application, questionnaire_supporter = _questionnaire_invite_context(invite)
+contract_application, contract_supporter = _contract_invite_context(invite)
 questionnaire_mode = bool(questionnaire_application)
-if invite.get("Adoption_Application_ID") and not questionnaire_mode:
-    st.error("This adoption-questionnaire link is no longer valid. Please contact Puppy Fosters - Algarve.")
+contract_mode = bool(contract_application)
+if invite.get("Adoption_Application_ID") and not questionnaire_mode and not contract_mode:
+    st.error("This adoption-workflow link is no longer valid. Please contact Puppy Fosters - Algarve.")
     st.stop()
-if questionnaire_mode:
-    if not invited_dog or int(questionnaire_application.get("Dog_ID") or 0) != int(invited_dog.get("Dog_ID") or 0):
-        st.error("This questionnaire link does not match the adoption application. Please contact Puppy Fosters - Algarve.")
+workflow_application = contract_application if contract_mode else questionnaire_application
+workflow_supporter = contract_supporter if contract_mode else questionnaire_supporter
+if questionnaire_mode or contract_mode:
+    if not invited_dog or int(workflow_application.get("Dog_ID") or 0) != int(invited_dog.get("Dog_ID") or 0):
+        st.error("This secure link does not match the adoption application. Please contact Puppy Fosters - Algarve.")
         st.stop()
-    if not questionnaire_supporter or int(questionnaire_application.get("Supporter_ID") or 0) != int(questionnaire_supporter.get("Supporter_ID") or 0):
-        st.error("The supporter record linked to this questionnaire could not be found.")
+    if not workflow_supporter or int(workflow_application.get("Supporter_ID") or 0) != int(workflow_supporter.get("Supporter_ID") or 0):
+        st.error("The supporter record linked to this secure link could not be found.")
         st.stop()
-    if str(questionnaire_application.get("Status") or "") in {"Rejected", "Withdrawn", "Completed"}:
+    if str(workflow_application.get("Status") or "") in {"Rejected", "Withdrawn", "Completed"}:
         st.info("This adoption application is closed. Please contact Puppy Fosters - Algarve if you need assistance.")
         st.stop()
+if contract_mode and str(contract_application.get("Status") or "") not in {"Approved", "Contract Pending"}:
+    st.info("This adoption contract is no longer awaiting signature. Please contact Puppy Fosters - Algarve if you need assistance.")
+    st.stop()
 
 
 # ---------------------------------------------------------------------
 # SECURE SUBMISSION STAGE
 # ---------------------------------------------------------------------
+contract_pending = st.session_state.get("pending_contract_submission")
+
+if contract_pending:
+    st.markdown("<div class='pfpa-section'>Secure contract signing</div>", unsafe_allow_html=True)
+    st.info("Your contract has been checked but has not yet been signed and submitted. Complete the Cloudflare security check below.")
+    if st.session_state.get("turnstile_error"):
+        st.error(st.session_state.pop("turnstile_error"))
+    version=int(st.session_state.get("turnstile_version",0)); component_key=f"pfpa_contract_turnstile_{version}"
+    turnstile_result=turnstile_component(data={"sitekey":TURNSTILE_SITE_KEY},default={"token":""},on_token_change=lambda:None,key=component_key,width="stretch",height=120)
+    turnstile_token=getattr(turnstile_result,"token","") or ""
+    if turnstile_token:
+        valid_turnstile,_=_verify_turnstile(turnstile_token)
+        if not valid_turnstile:
+            st.session_state["turnstile_error"]="The security check could not be validated. Please complete it again."
+            st.session_state["turnstile_version"]=version+1; st.rerun()
+        try:
+            filename,pdf_bytes=_save_contract_submission(contract_pending)
+            admin_email=_secret("APPLICATION_NOTIFICATION_EMAIL")
+            _send_email(admin_email,f"Adoption contract signed - {contract_pending['dog_name']}",(
+                f"The online adoption contract has been signed.\n\nDog: {contract_pending['dog_name']}\nAdoption application ID: {contract_pending['adoption_application_id']}\n\nReview it in the private Puppy Fosters - Algarve Applications page."
+            ))
+            _send_email(contract_pending["email"],f"Puppy Fosters - Algarve - adoption contract signed for {contract_pending['dog_name']}",(
+                f"Hello {contract_pending['signed_name']},\n\nThank you. Your electronically signed adoption contract for {contract_pending['dog_name']} has been received securely.\n\nKind regards,\nPuppy Fosters - Algarve"
+            ))
+            st.session_state.pop("pending_contract_submission",None)
+            st.session_state["contract_submit_success"]=contract_pending["dog_name"]
+            st.rerun()
+        except Exception:
+            st.session_state["turnstile_error"]="The security check passed, but the adoption contract could not be saved. Please complete the fresh security check and try again."
+            st.session_state["turnstile_version"]=version+1; st.rerun()
+    if st.button("← Edit contract",width="stretch"):
+        st.session_state.pop("pending_contract_submission",None); st.session_state["turnstile_version"]=version+1; st.rerun()
+    st.stop()
+
 questionnaire_pending = st.session_state.get("pending_questionnaire_submission")
 
 if questionnaire_pending:
@@ -1188,6 +1449,10 @@ if pending:
 
     st.stop()
 
+
+if contract_mode:
+    _render_contract_form(invite, contract_application, contract_supporter, invited_dog)
+    st.stop()
 
 if questionnaire_mode:
     _render_questionnaire_only_form(invite, questionnaire_application, questionnaire_supporter, invited_dog)
