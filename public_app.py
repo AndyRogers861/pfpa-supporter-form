@@ -289,13 +289,30 @@ DATA_PROTECTION = (
     "Access will be limited to authorised team members and information will be retained "
     "only for as long as reasonably necessary. I understand that I may ask for access to, "
     "correction of, or deletion of my personal information, subject to any legal or "
-    "operational requirements."
+    "operational requirements.\n\n"
+    "Dou o meu consentimento para que a Puppy Fosters of Portugal - Algarve conserve e utilize "
+    "os dados pessoais fornecidos neste formulário para efeitos de gestão das atividades de acolhimento, "
+    "adoção ou voluntariado, contacto comigo e manutenção de registos operacionais. O acesso será limitado "
+    "a membros autorizados da equipa e os dados serão conservados apenas durante o período razoavelmente "
+    "necessário. Compreendo que posso solicitar o acesso, a correção ou a eliminação dos meus dados pessoais, "
+    "sujeito a quaisquer requisitos legais ou operacionais aplicáveis."
 )
 
 ROLE_OPTIONS = ["Volunteer", "Foster", "Adopter"]
 VOLUNTEER_INTERESTS = ["Events", "Transport", "Photography", "Home Visits", "Other"]
 FOSTER_ANIMALS = ["Dogs", "Puppies"]
 FOSTER_DURATIONS = ["2-6 weeks", "Vacation", "Emergency Cover"]
+
+ROLE_LABELS = {"Volunteer":"Volunteer / Voluntário", "Foster":"Foster / Família de acolhimento", "Adopter":"Adopter / Adotante"}
+HOUSE_LABELS = {"":"", "House":"House / Casa", "Apartment":"Apartment / Apartamento", "Other":"Other / Outro"}
+TENURE_LABELS = {"":"", "Own":"Own / Própria", "Rent":"Rent / Arrendada", "Other":"Other / Outro"}
+YES_NO_LABELS = {"":"", "Yes":"Yes / Sim", "No":"No / Não"}
+FOSTER_ANIMAL_LABELS = {"Dogs":"Dogs / Cães", "Puppies":"Puppies / Cachorros"}
+FOSTER_DURATION_LABELS = {"2-6 weeks":"2-6 weeks / 2-6 semanas", "Vacation":"Vacation / Férias", "Emergency Cover":"Emergency cover / Acolhimento de emergência"}
+
+def _bi(en, pt):
+    return f"{en} / {pt}"
+
 DOCUMENT_BUCKET = "dog-documents"
 QUESTIONNAIRE_PATH = Path(__file__).resolve().parent / "PFPA Adoption Questionnaire EN.pdf"
 
@@ -518,7 +535,7 @@ def _dog(dog_id):
         return None
     rows = (
         supabase.table("V2_Dog")
-        .select("Dog_ID,Name,Status,Active,is_deleted")
+        .select("Dog_ID,Name,Gender,Date_of_Birth,Microchip_Number,Colour_Description,Status,Active,is_deleted")
         .eq("Dog_ID", int(dog_id))
         .eq("Active", True)
         .eq("is_deleted", False)
@@ -606,19 +623,19 @@ def _questionnaire_invite_context(invite):
 
 CONTRACT_TEMPLATE = Path(__file__).resolve().parent / "assets" / "BlankAdoptionContract.pdf"
 CONTRACT_TERMS = [
-    "I agree to keep an identification tag attached to a properly fitted collar which will remain on the adopted animal at all times, whether inside or outside of the house, and to obtain all necessary local licences including microchipping.",
-    "I agree to have the dog sterilised at the appropriate age as advised by my veterinary surgeon and to provide proof of sterilisation to Puppy Fosters - Algarve on request.",
-    "I agree to provide the adopted dog with necessary vaccinations at the intervals advised by my veterinary surgeon.",
-    "I agree to have the adopted dog under my control when it is not within the confines of my property. The adopted dog will not be tied or chained.",
-    "If for any reason I cannot keep the adopted dog, I agree to notify Puppy Fosters - Algarve and return the adopted dog upon request. The dog shall not be sold on or used for purposes other than as a family pet.",
-    "I agree to properly care for the dog, provide adequate food, water, training and sufficient exercise for optimum health, and consult a veterinary surgeon in the case of sickness, injury or accident and carry out necessary treatment.",
-    "I agree not to abuse or neglect the adopted dog.",
-    "I understand that the dog covered by this adoption agreement is, as far as can reasonably be determined, in good health and that Puppy Fosters - Algarve is not responsible for medical fees incurred after the adoption date.",
-    "With effect from the date and time of signature of this adoption agreement, I accept and assume full and sole responsibility for the care, custody, control, supervision and welfare of the dog, including related liability, whether or not the microchip/SIAC registration has by then been transferred into my name.",
-    "I understand that failure to perform the foregoing agreement constitutes a breach of contract and may result in Puppy Fosters - Algarve reclaiming possession of the adopted dog.",
-    "I will not euthanise the dog without contacting Puppy Fosters - Algarve except where an emergency veterinary surgeon considers euthanasia necessary to end suffering.",
-    "I agree to provide Puppy Fosters - Algarve with an update on how the adopted dog is doing during the two weeks following adoption.",
-    "I understand that a €90 adoption donation is requested.",
+    ('I agree to keep an identification tag attached to a properly fitted collar which will remain on the adopted animal at all times, whether inside or outside of the house, and to obtain all necessary local licences including microchipping.', 'Concordo em manter uma chapa de identificação presa a uma coleira devidamente ajustada, que permanecerá sempre no animal adotado, dentro ou fora de casa, e em obter todas as licenças locais necessárias, incluindo a identificação por microchip.'),
+    ('I agree to have the dog sterilised at the appropriate age as advised by my veterinary surgeon and to provide proof of sterilisation to Puppy Fosters - Algarve on request.', 'Concordo em esterilizar o cão na idade adequada, de acordo com a orientação do meu médico veterinário, e em fornecer comprovativo da esterilização à Puppy Fosters - Algarve quando solicitado.'),
+    ('I agree to provide the adopted dog with necessary vaccinations at the intervals advised by my veterinary surgeon.', 'Concordo em assegurar ao cão adotado as vacinas necessárias nos intervalos recomendados pelo meu médico veterinário.'),
+    ('I agree to have the adopted dog under my control when it is not within the confines of my property. The adopted dog will not be tied or chained.', 'Concordo em manter o cão adotado sob o meu controlo sempre que se encontre fora dos limites da minha propriedade. O cão adotado não será mantido preso ou acorrentado.'),
+    ('If for any reason I cannot keep the adopted dog, I agree to notify Puppy Fosters - Algarve and return the adopted dog upon request. The dog shall not be sold on or used for purposes other than as a family pet.', 'Se, por qualquer motivo, não puder manter o cão adotado, concordo em informar a Puppy Fosters - Algarve e em devolver o cão adotado quando solicitado. O cão não será vendido nem utilizado para fins diferentes dos de animal de companhia da família.'),
+    ('I agree to properly care for the dog, provide adequate food, water, training and sufficient exercise for optimum health, and consult a veterinary surgeon in the case of sickness, injury or accident and carry out necessary treatment.', 'Concordo em cuidar adequadamente do cão, fornecendo alimentação, água, treino e exercício suficientes para uma saúde ótima, e em consultar um médico veterinário em caso de doença, lesão ou acidente, seguindo o tratamento necessário.'),
+    ('I agree not to abuse or neglect the adopted dog.', 'Concordo em não maltratar nem negligenciar o cão adotado.'),
+    ('I understand that the dog covered by this adoption agreement is, as far as can reasonably be determined, in good health and that Puppy Fosters - Algarve is not responsible for medical fees incurred after the adoption date.', 'Compreendo que o cão abrangido por este acordo de adoção se encontra, tanto quanto razoavelmente possível determinar, de boa saúde e que a Puppy Fosters - Algarve não é responsável por despesas médicas incorridas após a data da adoção.'),
+    ('With effect from the date and time of signature of this adoption agreement, I accept and assume full and sole responsibility for the care, custody, control, supervision and welfare of the dog, including related liability, whether or not the microchip/SIAC registration has by then been transferred into my name.', 'A partir da data e hora da assinatura deste acordo de adoção, aceito e assumo total e exclusiva responsabilidade pelos cuidados, guarda, controlo, supervisão e bem-estar do cão, incluindo a responsabilidade daí decorrente, independentemente de o registo do microchip/SIAC já ter sido ou não transferido para o meu nome.'),
+    ('I understand that failure to perform the foregoing agreement constitutes a breach of contract and may result in Puppy Fosters - Algarve reclaiming possession of the adopted dog.', 'Compreendo que o incumprimento do presente acordo constitui uma violação contratual e poderá resultar na retoma da posse do cão adotado pela Puppy Fosters - Algarve.'),
+    ('I will not euthanise the dog without contacting Puppy Fosters - Algarve except where an emergency veterinary surgeon considers euthanasia necessary to end suffering.', 'Não autorizarei a eutanásia do cão sem contactar a Puppy Fosters - Algarve, exceto quando um médico veterinário de urgência considere a eutanásia necessária para pôr termo ao sofrimento.'),
+    ('I agree to provide Puppy Fosters - Algarve with an update on how the adopted dog is doing during the two weeks following adoption.', 'Concordo em fornecer à Puppy Fosters - Algarve uma atualização sobre a adaptação e o bem-estar do cão adotado durante as duas semanas seguintes à adoção.'),
+    ('I understand that a €90 adoption donation is requested.', 'Compreendo que é solicitado um donativo de adoção de 90 €.'),
 ]
 
 
@@ -667,48 +684,91 @@ def _person_name(person):
 
 
 def _contract_pdf_bytes(app, supporter, dog, foster, adoption_date, adopter_signature, issuer):
-    if not CONTRACT_TEMPLATE.exists():
-        raise RuntimeError("The adoption contract template is unavailable. Please contact Puppy Fosters - Algarve.")
-    reader = PdfReader(str(CONTRACT_TEMPLATE))
-    writer = PdfWriter()
-    writer.append(reader)
-    fields = reader.get_fields() or {}
-    def digits(v): return re.sub(r"\D", "", str(v or ""))
-    def phone_code(v):
-        d=digits(v)
-        return f"+{d}" if d else ""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4, rightMargin=15*mm, leftMargin=15*mm,
+        topMargin=14*mm, bottomMargin=14*mm,
+        title=f"Adoption Contract / Contrato de Adoção - {dog.get('Name') or 'Dog'}",
+    )
+    styles = getSampleStyleSheet()
+    title = ParagraphStyle("PFAContractTitle", parent=styles["Title"], alignment=TA_CENTER, spaceAfter=8)
+    h = ParagraphStyle("PFAContractHead", parent=styles["Heading2"], spaceBefore=7, spaceAfter=4)
+    body = styles["BodyText"]
+    small = ParagraphStyle("PFAContractSmall", parent=body, fontSize=8.2, leading=10.2)
+    tiny = ParagraphStyle("PFAContractTiny", parent=body, fontSize=7.6, leading=9.2)
+
     def fmt_date(v):
         try:
-            return date.fromisoformat(str(v)[:10]).strftime("%d %b %Y")
+            return date.fromisoformat(str(v)[:10]).strftime("%d/%m/%Y")
         except Exception:
             return str(v or "")
-    values = {
-        "date_of_adoption": fmt_date(adoption_date),
-        "foster_carer_name": _person_name(foster),
-        "foster_carer_address": foster.get("Address") or "",
-        "foster_carer_country": foster.get("Country") or "",
-        "foster_carer_phone_code": phone_code(foster.get("Phone_Code")),
-        "foster_carer_phone_number": digits(foster.get("Phone_Number")),
-        "dog_name": dog.get("Name") or "",
-        "dog_sex": dog.get("Gender") or "",
-        "dog_dob": fmt_date(dog.get("Date_of_Birth")),
-        "dog_chip_no": dog.get("Microchip_Number") or "",
-        "dog_description": dog.get("Colour_Description") or "",
-        "adopter_name": _person_name(supporter),
-        "adopter_address": supporter.get("Address") or "",
-        "adopter_country": supporter.get("Country") or "",
-        "adopter_phone_code": phone_code(supporter.get("Phone_Code")),
-        "adopter_phone_number": digits(supporter.get("Phone_Number")),
-        "adopter_email": supporter.get("Email") or "",
-        "foster_carer_signature": f"Electronically approved by {issuer}" if issuer else "Puppy Fosters - Algarve",
-        "adopter_signature": f"Electronically signed by {adopter_signature}",
-        "foster_carer_sign_date": fmt_date(date.today().isoformat()),
-        "adopter_sign_date": fmt_date(date.today().isoformat()),
-    }
-    form_values = {k:("" if values.get(k) in (None,"") else str(values.get(k))) for k in fields if k in values}
-    for page in writer.pages:
-        writer.update_page_form_field_values(page, form_values)
-    buf=io.BytesIO(); writer.write(buf); return buf.getvalue()
+    def digits(v): return re.sub(r"\D", "", str(v or ""))
+    def phone(person):
+        code = digits(person.get("Phone_Code"))
+        num = digits(person.get("Phone_Number"))
+        return (("+" + code + " ") if code else "") + num
+
+    story = [
+        Paragraph("Puppy Fosters - Algarve", title),
+        Paragraph("Adoption Contract / Contrato de Adoção", title),
+        Paragraph(f"Adoption / trial commencement date / Data de início da adoção / período experimental: <b>{_pdf_text(fmt_date(adoption_date))}</b>", small),
+        Spacer(1, 4*mm),
+        Paragraph("DOG / CÃO", h),
+    ]
+    dog_rows = [
+        ("Name / Nome", dog.get("Name")),
+        ("Sex / Sexo", dog.get("Gender")),
+        ("Date of birth / Data de nascimento", fmt_date(dog.get("Date_of_Birth"))),
+        ("Microchip / Microchip", dog.get("Microchip_Number")),
+        ("Description / Descrição", dog.get("Colour_Description")),
+    ]
+    t = Table([[Paragraph(f"<b>{_pdf_text(a)}</b>", tiny), Paragraph(_pdf_text(b), tiny)] for a,b in dog_rows], colWidths=[62*mm, 105*mm])
+    t.setStyle(TableStyle([("GRID",(0,0),(-1,-1),0.25,colors.lightgrey),("VALIGN",(0,0),(-1,-1),"TOP"),("BACKGROUND",(0,0),(0,-1),colors.whitesmoke),("PADDING",(0,0),(-1,-1),4)]))
+    story += [t, Spacer(1,4*mm)]
+
+    story.append(Paragraph("ADOPTER / ADOTANTE", h))
+    adopter_rows = [
+        ("Name / Nome", _person_name(supporter)),
+        ("Address / Morada", supporter.get("Address")),
+        ("Country / País", supporter.get("Country")),
+        ("Phone / Telefone", phone(supporter)),
+        ("Email / E-mail", supporter.get("Email")),
+    ]
+    t = Table([[Paragraph(f"<b>{_pdf_text(a)}</b>", tiny), Paragraph(_pdf_text(b), tiny)] for a,b in adopter_rows], colWidths=[62*mm,105*mm])
+    t.setStyle(TableStyle([("GRID",(0,0),(-1,-1),0.25,colors.lightgrey),("VALIGN",(0,0),(-1,-1),"TOP"),("BACKGROUND",(0,0),(0,-1),colors.whitesmoke),("PADDING",(0,0),(-1,-1),4)]))
+    story += [t, Spacer(1,4*mm)]
+
+    story.append(Paragraph("FOSTER CARER / FAMÍLIA DE ACOLHIMENTO", h))
+    if foster:
+        foster_rows = [
+            ("Name / Nome", _person_name(foster)),
+            ("Address / Morada", foster.get("Address")),
+            ("Country / País", foster.get("Country")),
+            ("Phone / Telefone", phone(foster)),
+        ]
+        t = Table([[Paragraph(f"<b>{_pdf_text(a)}</b>", tiny), Paragraph(_pdf_text(b), tiny)] for a,b in foster_rows], colWidths=[62*mm,105*mm])
+        t.setStyle(TableStyle([("GRID",(0,0),(-1,-1),0.25,colors.lightgrey),("VALIGN",(0,0),(-1,-1),"TOP"),("BACKGROUND",(0,0),(0,-1),colors.whitesmoke),("PADDING",(0,0),(-1,-1),4)]))
+        story.append(t)
+    else:
+        story.append(Paragraph("No current foster carer recorded. / Não existe atualmente uma família de acolhimento registada.", small))
+
+    story += [Spacer(1,4*mm), Paragraph("CONTRACT PROVISIONS / CLÁUSULAS DO CONTRATO", h)]
+    for i,(en,pt) in enumerate(CONTRACT_TERMS,1):
+        story.append(Paragraph(f"<b>{i}. EN:</b> {_pdf_text(en)}<br/><b>PT:</b> {_pdf_text(pt)}", tiny))
+        story.append(Spacer(1,2.2*mm))
+
+    story += [
+        Paragraph("DATA PROTECTION / PROTEÇÃO DE DADOS", h),
+        Paragraph(_pdf_text(DATA_PROTECTION).replace("\n", "<br/>"), tiny),
+        Spacer(1,4*mm),
+        Paragraph("ELECTRONIC SIGNATURE / ASSINATURA ELETRÓNICA", h),
+        Paragraph(f"Electronically signed by / Assinado eletronicamente por: <b>{_pdf_text(adopter_signature)}</b>", small),
+        Paragraph(f"Signed on / Assinado em: <b>{_pdf_text(fmt_date(date.today()))}</b>", small),
+    ]
+    if issuer:
+        story.append(Paragraph(f"Issued by Puppy Fosters - Algarve / Emitido por Puppy Fosters - Algarve: <b>{_pdf_text(issuer)}</b>", small))
+    doc.build(story)
+    return buf.getvalue()
 
 
 def _save_contract_submission(pending):
@@ -762,33 +822,34 @@ def _render_contract_form(invite, app, supporter, dog):
         f"This contract is for **{dog.get('Name') or 'the selected dog'}**. Review the pre-filled details and all contract provisions before electronically signing. A printable signed PDF will be generated automatically after submission."
     )
     st.markdown("#### Contract details")
-    st.write(f"**Dog:** {dog.get('Name') or ''} — {dog.get('Gender') or ''}")
-    st.write(f"**Microchip:** {dog.get('Microchip_Number') or 'Not recorded'}")
+    st.write(f"**Dog / Cão:** {dog.get('Name') or ''} — {dog.get('Gender') or ''}")
+    st.write(f"**Microchip / Microchip:** {dog.get('Microchip_Number') or 'Not recorded / Não registado'}")
     if foster:
-        st.write(f"**Current foster carer / Puppy Fosters contact:** {_person_name(foster)}")
+        st.write(f"**Current foster carer / Puppy Fosters contact / Família de acolhimento atual / contacto Puppy Fosters:** {_person_name(foster)}")
     else:
-        st.caption("No current foster carer is recorded; the Foster Carer details on the archived contract will remain blank.")
+        st.caption("No current foster carer is recorded; the Foster Carer details on the archived contract will remain blank. / Não existe atualmente uma família de acolhimento registada; os respetivos campos no contrato arquivado ficarão em branco.")
     with st.form("online_adoption_contract"):
-        adoption_date=st.date_input("Adoption / trial commencement date *",value=date.today(),format="DD/MM/YYYY")
+        adoption_date=st.date_input("Adoption / trial commencement date / Data de início da adoção / período experimental *",value=date.today(),format="DD/MM/YYYY")
         st.markdown("#### Adopter details")
-        st.text_input("Name",value=_person_name(supporter),disabled=True)
-        address=st.text_area("Address *",value=supporter.get("Address") or "")
-        country=st.selectbox("Country *",COUNTRIES,index=COUNTRIES.index(supporter.get("Country")) if supporter.get("Country") in COUNTRIES else (COUNTRIES.index("Portugal") if "Portugal" in COUNTRIES else 0))
+        st.text_input("Name / Nome",value=_person_name(supporter),disabled=True)
+        address=st.text_area("Address / Morada *",value=supporter.get("Address") or "")
+        country=st.selectbox("Country / País *",COUNTRIES,index=COUNTRIES.index(supporter.get("Country")) if supporter.get("Country") in COUNTRIES else (COUNTRIES.index("Portugal") if "Portugal" in COUNTRIES else 0))
         current_code=supporter.get("Phone_Code") or "+351"
         code_display=next((x for x in CALLING_CODES if x.startswith(current_code+" ")), "+351 PT")
         c1,c2=st.columns(2)
-        phone_code=c1.selectbox("Country code *",CALLING_CODES,index=CALLING_CODES.index(code_display) if code_display in CALLING_CODES else 0)
-        phone_number=c2.text_input("Phone number *",value=supporter.get("Phone_Number") or "")
-        email=st.text_input("Email address *",value=supporter.get("Email") or invite.get("Email") or "")
+        phone_code=c1.selectbox("Country code / Indicativo do país *",CALLING_CODES,index=CALLING_CODES.index(code_display) if code_display in CALLING_CODES else 0)
+        phone_number=c2.text_input("Phone number / Número de telefone *",value=supporter.get("Phone_Number") or "")
+        email=st.text_input("Email address / Endereço de e-mail *",value=supporter.get("Email") or invite.get("Email") or "")
         st.markdown("#### Contract provisions")
-        for i,term in enumerate(CONTRACT_TERMS,1): st.markdown(f"**{i}.** {term}")
+        for i,(en,pt) in enumerate(CONTRACT_TERMS,1):
+            st.markdown(f"**{i}. EN:** {en}  \n**PT:** {pt}")
         st.markdown("#### Data protection and electronic signature")
         st.write(DATA_PROTECTION)
-        accept_terms=st.checkbox("I have read and agree to all provisions of this adoption contract. *")
-        privacy=st.checkbox("I have read and agree to the Data Protection statement and Privacy Policy. *")
-        declaration=st.checkbox("I confirm that the pre-filled details above are accurate and that I intend my typed name below to act as my electronic signature. *")
-        signed_name=st.text_input("Electronic signature - type your full name *",value=_person_name(supporter))
-        submit=st.form_submit_button("Continue to secure signing",type="primary",width="stretch")
+        accept_terms=st.checkbox("I have read and agree to all provisions of this adoption contract. / Li e concordo com todas as cláusulas deste contrato de adoção. *")
+        privacy=st.checkbox("I have read and agree to the Data Protection statement and Privacy Policy. / Li e concordo com a declaração de Proteção de Dados e a Política de Privacidade. *")
+        declaration=st.checkbox("I confirm that the pre-filled details above are accurate and that I intend my typed name below to act as my electronic signature. / Confirmo que os dados pré-preenchidos acima estão corretos e que pretendo que o nome digitado abaixo funcione como a minha assinatura eletrónica. *")
+        signed_name=st.text_input("Electronic signature - type your full name / Assinatura eletrónica - escreva o seu nome completo *",value=_person_name(supporter))
+        submit=st.form_submit_button("Continue to secure signing / Continuar para assinatura segura",type="primary",width="stretch")
     if submit:
         errors=[]
         for label,val in [("Adoption date",adoption_date),("Address",address),("Country",country),("Phone number",phone_number),("Email",email),("Electronic signature",signed_name)]:
@@ -829,7 +890,7 @@ def _questionnaire_pdf_bytes(dog_name, contact, qdata, signed_name, submitted_at
     doc = SimpleDocTemplate(
         buf, pagesize=A4, rightMargin=16*mm, leftMargin=16*mm,
         topMargin=15*mm, bottomMargin=15*mm,
-        title=f"Adoption Questionnaire - {dog_name or 'Dog'}",
+        title=f"Adoption Questionnaire / Questionário de Adoção - {dog_name or 'Dog'}",
     )
     styles = getSampleStyleSheet()
     title = ParagraphStyle("PFATitle", parent=styles["Title"], alignment=TA_CENTER, spaceAfter=10)
@@ -838,60 +899,51 @@ def _questionnaire_pdf_bytes(dog_name, contact, qdata, signed_name, submitted_at
     small = ParagraphStyle("PFASmall", parent=body, fontSize=8.5, leading=10.5)
     story = [
         Paragraph("Puppy Fosters - Algarve", title),
-        Paragraph("Adopter's Questionnaire", title),
-        Paragraph(f"Dog: <b>{_pdf_text(dog_name)}</b>", body),
+        Paragraph("Adopter's Questionnaire / Questionário de Adotante", title),
+        Paragraph(f"Dog / Cão: <b>{_pdf_text(dog_name)}</b>", body),
         Spacer(1, 5*mm),
-        Paragraph("YOUR DETAILS", h),
+        Paragraph("YOUR DETAILS / OS SEUS DADOS", h),
     ]
     details = [
-        ["Name", f"{contact.get('first_name','')} {contact.get('last_name','')}".strip()],
-        ["Address", contact.get("address")],
-        ["Phone", f"{contact.get('phone_code','')} {contact.get('phone_number','')}".strip()],
-        ["Email", contact.get("email")],
+        ("Name / Nome", f"{contact.get('first_name','')} {contact.get('last_name','')}".strip()),
+        ("Address / Morada", contact.get("address")),
+        ("Phone / Telefone", f"{contact.get('phone_code','')} {contact.get('phone_number','')}".strip()),
+        ("Email / E-mail", contact.get("email")),
     ]
-    table = Table([[Paragraph(f"<b>{_pdf_text(a)}</b>", small), Paragraph(_pdf_text(b), small)] for a,b in details], colWidths=[42*mm, 125*mm])
-    table.setStyle(TableStyle([
-        ("VALIGN", (0,0), (-1,-1), "TOP"),
-        ("GRID", (0,0), (-1,-1), 0.25, colors.lightgrey),
-        ("BACKGROUND", (0,0), (0,-1), colors.whitesmoke),
-        ("LEFTPADDING", (0,0), (-1,-1), 5), ("RIGHTPADDING", (0,0), (-1,-1), 5),
-        ("TOPPADDING", (0,0), (-1,-1), 4), ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-    ]))
-    story += [table, Spacer(1, 5*mm), Paragraph("ABOUT YOU, YOUR HOME AND YOUR LIFESTYLE", h)]
+    table = Table([[Paragraph(f"<b>{_pdf_text(a)}</b>", small), Paragraph(_pdf_text(b), small)] for a,b in details], colWidths=[55*mm,112*mm])
+    table.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),("GRID",(0,0),(-1,-1),0.25,colors.lightgrey),("BACKGROUND",(0,0),(0,-1),colors.whitesmoke),("PADDING",(0,0),(-1,-1),4)]))
+    story += [table, Spacer(1, 5*mm), Paragraph("ABOUT YOU, YOUR HOME AND YOUR LIFESTYLE / SOBRE SI, A SUA CASA E O SEU ESTILO DE VIDA", h)]
     questions = [
-        ("Tell us a bit about yourself and your household", "household"),
-        ("Do you have children? Ages?", "children"),
-        ("Do you currently have pets? What type and ages?", "current_pets"),
-        ("Do you live in a house or apartment?", "house_type"),
-        ("Do you rent or own?", "rent_own"),
-        ("Do you have an enclosed private outdoor space?", "private_outdoor"),
-        ("What type of outdoor space do you have, and is it fenced/secure?", "outdoor_description"),
-        ("Have you raised a puppy before, or do you have other experience with dogs?", "dog_experience"),
-        ("What is your exercise plan for the puppy, and your thoughts about training?", "exercise_training"),
-        ("How do you feel about sterilisation, regular vaccines, deworming and flea/tick prevention?", "preventative_care"),
-        ("What is your schedule during the day - how long will the puppy be home alone?", "schedule_alone"),
-        ("Where will the puppy sleep at night, and stay when no one is home?", "sleep_arrangements"),
-        ("Any vacation plans coming up?", "vacation_plans"),
-        ("When you travel, where will the puppy be if not travelling with you? Pet-sitting or boarding?", "travel_petsitting"),
-        ("If your housing, work, or family situation changes, what would that mean for your dog?", "future_changes"),
+        ("Tell us a bit about yourself and your household", "Fale-nos um pouco sobre si e sobre o seu agregado familiar", "household"),
+        ("Do you have children? Ages?", "Tem crianças? Quais são as idades?", "children"),
+        ("Do you currently have pets? What type and ages?", "Tem atualmente animais de estimação? Que tipo e idades?", "current_pets"),
+        ("Do you live in a house or apartment?", "Vive numa casa ou num apartamento?", "house_type"),
+        ("Do you rent or own?", "A habitação é arrendada ou própria?", "rent_own"),
+        ("Do you have an enclosed private outdoor space?", "Tem um espaço exterior privado e fechado?", "private_outdoor"),
+        ("What type of outdoor space do you have, and is it fenced/secure?", "Que tipo de espaço exterior tem e encontra-se vedado/seguro?", "outdoor_description"),
+        ("Have you raised a puppy before, or do you have other experience with dogs?", "Já criou um cachorro ou tem outra experiência com cães?", "dog_experience"),
+        ("What is your exercise plan for the puppy, and your thoughts about training?", "Qual é o seu plano de exercício para o cachorro e qual é a sua abordagem ao treino?", "exercise_training"),
+        ("How do you feel about sterilisation, regular vaccines, deworming and flea/tick prevention?", "Qual é a sua opinião sobre esterilização, vacinação regular, desparasitação e prevenção de pulgas/carraças?", "preventative_care"),
+        ("What is your schedule during the day - how long will the puppy be home alone?", "Qual é a sua rotina durante o dia e durante quanto tempo o cachorro ficará sozinho em casa?", "schedule_alone"),
+        ("Where will the puppy sleep at night, and stay when no one is home?", "Onde dormirá o cachorro à noite e onde ficará quando não estiver ninguém em casa?", "sleep_arrangements"),
+        ("Any vacation plans coming up?", "Tem férias planeadas para breve?", "vacation_plans"),
+        ("When you travel, where will the puppy be if not travelling with you? Pet-sitting or boarding?", "Quando viajar, onde ficará o cachorro se não viajar consigo? Como fará com pet-sitting ou alojamento?", "travel_petsitting"),
+        ("If your housing, work, or family situation changes, what would that mean for your dog?", "Se a sua situação habitacional, profissional ou familiar mudar, o que significaria isso para o seu cão?", "future_changes"),
     ]
-    for label, key in questions:
-        value = qdata.get(key)
+    for en,pt,key in questions:
+        value=qdata.get(key)
         if key == "private_outdoor":
-            value = "Yes" if value is True else "No" if value is False else ""
-        story += [Paragraph(f"<b>{_pdf_text(label)}</b>", small), Paragraph(_pdf_text(value), small), Spacer(1, 3*mm)]
+            value = "Yes / Sim" if value is True else "No / Não" if value is False else ""
+        story += [Paragraph(f"<b>EN:</b> {_pdf_text(en)}<br/><b>PT:</b> {_pdf_text(pt)}", small), Paragraph(_pdf_text(value), small), Spacer(1,3*mm)]
     story += [
-        Spacer(1, 3*mm),
-        Paragraph("DECLARATION AND ELECTRONIC SIGNATURE", h),
-        Paragraph(
-            "I confirm that the information provided is complete and accurate and understand that it will be used by Puppy Fosters - Algarve to assess this adoption application. I have read the Privacy Policy.",
-            small,
-        ),
-        Spacer(1, 3*mm),
-        Paragraph(f"Electronically signed by: <b>{_pdf_text(signed_name)}</b>", small),
-        Paragraph(f"Submitted: <b>{_pdf_text(submitted_at)}</b>", small),
-        Spacer(1, 5*mm),
-        Paragraph("Puppy Fosters - Algarve | Adopter's Questionnaire", small),
+        Spacer(1,3*mm),
+        Paragraph("DECLARATION AND ELECTRONIC SIGNATURE / DECLARAÇÃO E ASSINATURA ELETRÓNICA", h),
+        Paragraph("I confirm that the information provided is complete and accurate and understand that it will be used by Puppy Fosters - Algarve to assess this adoption application. I have read the Privacy Policy.<br/><br/>Confirmo que as informações fornecidas são completas e corretas e compreendo que serão utilizadas pela Puppy Fosters - Algarve para avaliar este pedido de adoção. Li a Política de Privacidade.", small),
+        Spacer(1,3*mm),
+        Paragraph(f"Electronically signed by / Assinado eletronicamente por: <b>{_pdf_text(signed_name)}</b>", small),
+        Paragraph(f"Submitted / Submetido: <b>{_pdf_text(submitted_at)}</b>", small),
+        Spacer(1,5*mm),
+        Paragraph("Puppy Fosters - Algarve | Adopter's Questionnaire / Questionário de Adotante", small),
     ]
     doc.build(story)
     return buf.getvalue()
@@ -988,52 +1040,52 @@ def _render_questionnaire_only_form(invite, app, supporter, dog):
     st.markdown("<div class='pfpa-section'>Adoption questionnaire</div>", unsafe_allow_html=True)
     st.info(
         f"This questionnaire is for **{dog.get('Name') or 'the selected dog'}**. "
-        "Every question is mandatory. Your submitted answers and electronic signature will be stored as a printable PDF in the adoption record."
+        "Every question is mandatory. Your submitted answers and electronic signature will be stored as a printable PDF in the adoption record. / Todas as perguntas são obrigatórias. As suas respostas e assinatura eletrónica serão guardadas como PDF imprimível no registo de adoção."
     )
     with st.form("online_adoption_questionnaire"):
         st.markdown("#### Your details")
         c1, c2 = st.columns(2)
-        first_name = c1.text_input("First name *", value=supporter.get("First_Name") or "")
-        last_name = c2.text_input("Last name *", value=supporter.get("Last_Name") or "")
-        address = st.text_area("Address *", value=supporter.get("Address") or "")
+        first_name = c1.text_input("First name / Nome próprio *", value=supporter.get("First_Name") or "")
+        last_name = c2.text_input("Last name / Apelido *", value=supporter.get("Last_Name") or "")
+        address = st.text_area("Address / Morada *", value=supporter.get("Address") or "")
         current_code = supporter.get("Phone_Code") or "+351"
         code_display = next((x for x in CALLING_CODES if x.startswith(current_code + " ")), "+351 PT")
         c1, c2 = st.columns(2)
-        phone_code = c1.selectbox("Country code *", CALLING_CODES, index=CALLING_CODES.index(code_display) if code_display in CALLING_CODES else 0)
-        phone_number = c2.text_input("Phone number *", value=supporter.get("Phone_Number") or "")
-        email = st.text_input("Email address *", value=supporter.get("Email") or invite.get("Email") or "")
+        phone_code = c1.selectbox("Country code / Indicativo do país *", CALLING_CODES, index=CALLING_CODES.index(code_display) if code_display in CALLING_CODES else 0)
+        phone_number = c2.text_input("Phone number / Número de telefone *", value=supporter.get("Phone_Number") or "")
+        email = st.text_input("Email address / Endereço de e-mail *", value=supporter.get("Email") or invite.get("Email") or "")
 
         st.markdown("#### About you, your home and your lifestyle")
-        household = st.text_area("Tell us a bit about yourself and your household *", value=profile.get("Household") or "")
-        children = st.text_area("Do you have children? Ages? *", value=profile.get("Children") or "", placeholder="If none, enter 'None'.")
-        current_pets = st.text_area("Do you currently have pets? What type and ages? *", value=profile.get("Current_Pets") or "", placeholder="If none, enter 'None'.")
+        household = st.text_area("Tell us a bit about yourself and your household / Fale-nos um pouco sobre si e sobre o seu agregado familiar *", value=profile.get("Household") or "")
+        children = st.text_area("Do you have children? Ages? / Tem crianças? Quais são as idades? *", value=profile.get("Children") or "", placeholder="If none, enter 'None'. / Se não tiver, escreva 'Nenhum'.")
+        current_pets = st.text_area("Do you currently have pets? What type and ages? / Tem atualmente animais de estimação? Que tipo e idades? *", value=profile.get("Current_Pets") or "", placeholder="If none, enter 'None'. / Se não tiver, escreva 'Nenhum'.")
         house_opts = ["", "House", "Apartment", "Other"]
         current_house = profile.get("House_Type") or ""
         if current_house and current_house not in house_opts: house_opts.insert(1, current_house)
-        house_type = st.selectbox("Do you live in a house or apartment? *", house_opts, index=house_opts.index(current_house) if current_house in house_opts else 0)
+        house_type = st.selectbox("Do you live in a house or apartment? / Vive numa casa ou num apartamento? *", house_opts, format_func=lambda x: HOUSE_LABELS.get(x,x), index=house_opts.index(current_house) if current_house in house_opts else 0)
         own_opts = ["", "Own", "Rent", "Other"]
         current_own = profile.get("Rent_Own") or ""
         if current_own and current_own not in own_opts: own_opts.insert(1, current_own)
-        rent_own = st.selectbox("Do you rent or own? *", own_opts, index=own_opts.index(current_own) if current_own in own_opts else 0)
+        rent_own = st.selectbox("Do you rent or own? / A habitação é arrendada ou própria? *", own_opts, format_func=lambda x: TENURE_LABELS.get(x,x), index=own_opts.index(current_own) if current_own in own_opts else 0)
         po = profile.get("Private_Outdoor")
-        outdoor_choice = st.selectbox("Do you have an enclosed private outdoor space? *", ["", "Yes", "No"], index=1 if po is True else 2 if po is False else 0)
-        outdoor_description = st.text_area("What type of outdoor space do you have, and is it fenced / secure? *", value=profile.get("Outdoor_Description") or "", help="If you have no private outdoor space, state that here.")
-        dog_experience = st.text_area("Have you raised a puppy before, or do you have other experience with dogs? Please describe. *", value=profile.get("Dog_Experience") or "")
-        exercise_training = st.text_area("What is your exercise plan for the puppy, and your thoughts about training? *", value=profile.get("Exercise_Training") or "")
-        preventative_care = st.text_area("How do you feel about sterilisation, regular vaccines, deworming and flea/tick prevention? *", value=profile.get("Preventative_Care") or "")
-        schedule_alone = st.text_area("What is your schedule during the day - how long will the puppy be home alone? *", value=profile.get("Schedule_Alone") or "")
-        sleep_arrangements = st.text_area("Where will the puppy sleep at night, and stay when no one is home? *", value=profile.get("Sleep_Arrangements") or "")
-        vacation_plans = st.text_area("Any vacation plans coming up? *", value=profile.get("Vacation_Plans") or "", placeholder="If none, enter 'None'.")
-        travel_petsitting = st.text_area("When you travel, where will the puppy be if not travelling with you? What would you do for pet-sitting or boarding? *", value=profile.get("Travel_Petsitting") or "")
-        future_changes = st.text_area("If your housing, work, or family situation changes in the future, what would that mean for your dog? *", value=profile.get("Future_Changes") or "")
-        notes = st.text_area("Additional adoption notes (optional)", value=profile.get("Notes") or "")
+        outdoor_choice = st.selectbox("Do you have an enclosed private outdoor space? / Tem um espaço exterior privado e fechado? *", ["", "Yes", "No"], format_func=lambda x: YES_NO_LABELS.get(x,x), index=1 if po is True else 2 if po is False else 0)
+        outdoor_description = st.text_area("What type of outdoor space do you have, and is it fenced / secure? / Que tipo de espaço exterior tem e encontra-se vedado / seguro? *", value=profile.get("Outdoor_Description") or "", help="If you have no private outdoor space, state that here. / Se não tiver espaço exterior privado, indique-o aqui.")
+        dog_experience = st.text_area("Have you raised a puppy before, or do you have other experience with dogs? Please describe. / Já criou um cachorro ou tem outra experiência com cães? Descreva. *", value=profile.get("Dog_Experience") or "")
+        exercise_training = st.text_area("What is your exercise plan for the puppy, and your thoughts about training? / Qual é o seu plano de exercício para o cachorro e a sua abordagem ao treino? *", value=profile.get("Exercise_Training") or "")
+        preventative_care = st.text_area("How do you feel about sterilisation, regular vaccines, deworming and flea/tick prevention? / Qual é a sua opinião sobre esterilização, vacinação regular, desparasitação e prevenção de pulgas/carraças? *", value=profile.get("Preventative_Care") or "")
+        schedule_alone = st.text_area("What is your schedule during the day - how long will the puppy be home alone? / Qual é a sua rotina durante o dia e durante quanto tempo o cachorro ficará sozinho em casa? *", value=profile.get("Schedule_Alone") or "")
+        sleep_arrangements = st.text_area("Where will the puppy sleep at night, and stay when no one is home? / Onde dormirá o cachorro à noite e onde ficará quando não estiver ninguém em casa? *", value=profile.get("Sleep_Arrangements") or "")
+        vacation_plans = st.text_area("Any vacation plans coming up? / Tem férias planeadas para breve? *", value=profile.get("Vacation_Plans") or "", placeholder="If none, enter 'None'. / Se não tiver, escreva 'Nenhum'.")
+        travel_petsitting = st.text_area("When you travel, where will the puppy be if not travelling with you? What would you do for pet-sitting or boarding? / Quando viajar, onde ficará o cachorro se não viajar consigo? Como fará com pet-sitting ou alojamento? *", value=profile.get("Travel_Petsitting") or "")
+        future_changes = st.text_area("If your housing, work, or family situation changes in the future, what would that mean for your dog? / Se a sua situação habitacional, profissional ou familiar mudar, o que significaria isso para o seu cão? *", value=profile.get("Future_Changes") or "")
+        notes = st.text_area("Additional adoption notes (optional) / Notas adicionais sobre a adoção (opcional)", value=profile.get("Notes") or "")
 
         st.markdown("#### Data protection and declaration")
         st.write(DATA_PROTECTION)
-        consent = st.checkbox("I have read and agree to the Data Protection statement. *")
-        declaration = st.checkbox("I confirm that the information supplied is complete and accurate to the best of my knowledge. *")
-        signed_name = st.text_input("Electronic signature - type your full name *", value=f"{supporter.get('First_Name','')} {supporter.get('Last_Name','')}".strip())
-        submit = st.form_submit_button("Continue to secure submission", type="primary", width="stretch")
+        consent = st.checkbox("I have read and agree to the Data Protection statement. / Li e concordo com a declaração de Proteção de Dados. *")
+        declaration = st.checkbox("I confirm that the information supplied is complete and accurate to the best of my knowledge. / Confirmo que as informações fornecidas são completas e corretas, tanto quanto é do meu conhecimento. *")
+        signed_name = st.text_input("Electronic signature - type your full name / Assinatura eletrónica - escreva o seu nome completo *", value=f"{supporter.get('First_Name','')} {supporter.get('Last_Name','')}".strip())
+        submit = st.form_submit_button("Continue to secure submission / Continuar para submissão segura", type="primary", width="stretch")
 
     if submit:
         qdata = {
@@ -1478,8 +1530,9 @@ if invited_dog and "Adopter" in allowed_roles:
     default_roles = list(dict.fromkeys(default_roles + ["Adopter"]))
 
 roles = st.multiselect(
-    "How would you like to support us? *",
+    "How would you like to support us? / Como gostaria de nos apoiar? *",
     allowed_roles,
+    format_func=lambda x: ROLE_LABELS.get(x, x),
     default=default_roles,
     help="You can select more than one role if your invitation allows it.",
 )
@@ -1513,30 +1566,30 @@ if "Adopter" in roles and invited_dog:
 with st.form("supporter_application_form"):
     st.markdown("<div class='pfpa-section'>Your details</div>", unsafe_allow_html=True)
     st.caption(
-        "Core contact fields marked * are mandatory. "
-        "If you are applying to adopt, every adoption-questionnaire field is mandatory."
+        "Core contact fields marked * are mandatory. / Os campos de contacto assinalados com * são obrigatórios. "
+        "If you are applying to adopt, every adoption-questionnaire field is mandatory. / Se estiver a candidatar-se à adoção, todos os campos do questionário de adoção são obrigatórios."
     )
 
-    first_name = st.text_input("First name *")
-    last_name = st.text_input("Last name *")
+    first_name = st.text_input("First name / Nome próprio *")
+    last_name = st.text_input("Last name / Apelido *")
 
     default_calling_code = "+351 PT"
     phone_code = st.selectbox(
-        "Country code *",
+        "Country code / Indicativo do país *",
         CALLING_CODES,
         index=CALLING_CODES.index(default_calling_code)
         if default_calling_code in CALLING_CODES else 0,
     )
     phone_number = st.text_input(
-        "Phone *",
-        help="Enter the local/national number only; the country code is selected above.",
+        "Phone / Telefone *",
+        help="Enter the local/national number only; the country code is selected above. / Introduza apenas o número nacional/local; o indicativo do país é selecionado acima.",
         placeholder="e.g. 912 345 678",
     )
-    email = st.text_input("E-mail *", value=invite.get("Email") or "")
-    postcode = st.text_input("Postcode *")
-    parish = st.text_input("Parish *")
+    email = st.text_input("E-mail / E-mail *", value=invite.get("Email") or "")
+    postcode = st.text_input("Postcode / Código postal *")
+    parish = st.text_input("Parish / Freguesia *")
     country = st.selectbox(
-        "Country *",
+        "Country / País *",
         COUNTRIES,
         index=COUNTRIES.index("Portugal") if "Portugal" in COUNTRIES else 0,
     )
@@ -1544,7 +1597,7 @@ with st.form("supporter_application_form"):
     address = ""
     if "Adopter" in roles:
         address = st.text_area(
-            "Address *",
+            "Address / Morada *",
             help="Required for a dog-specific adoption application and the adoption contract.",
         )
 
@@ -1552,31 +1605,31 @@ with st.form("supporter_application_form"):
     if "Volunteer" in roles:
         st.markdown("<div class='pfpa-section'>Volunteer</div>", unsafe_allow_html=True)
         volunteer_data["interests"] = st.multiselect(
-            "Areas of interest (optional)", VOLUNTEER_INTERESTS
+            "Areas of interest (optional) / Áreas de interesse (opcional)", VOLUNTEER_INTERESTS
         )
-        volunteer_data["other_notes"] = st.text_area("Other interest / notes (optional)")
+        volunteer_data["other_notes"] = st.text_area("Other interest / notes (optional) / Outro interesse / notas (opcional)")
 
     foster_data = {}
     if "Foster" in roles:
         st.markdown("<div class='pfpa-section'>Foster</div>", unsafe_allow_html=True)
-        foster_data["animals"] = st.multiselect("What could you foster? (optional)", FOSTER_ANIMALS)
-        foster_data["durations"] = st.multiselect("Availability (optional)", FOSTER_DURATIONS)
-        foster_data["experience"] = st.text_area("Experience with dogs/puppies (optional)")
-        foster_data["home_description"] = st.text_area("Home / household information (optional)")
-        outdoor_choice = st.selectbox("Private outdoor space? (optional)", ["", "Yes", "No"])
+        foster_data["animals"] = st.multiselect("What could you foster? (optional) / Que animais poderia acolher? (opcional)", FOSTER_ANIMALS, format_func=lambda x: FOSTER_ANIMAL_LABELS.get(x,x))
+        foster_data["durations"] = st.multiselect("Availability (optional) / Disponibilidade (opcional)", FOSTER_DURATIONS, format_func=lambda x: FOSTER_DURATION_LABELS.get(x,x))
+        foster_data["experience"] = st.text_area("Experience with dogs/puppies (optional) / Experiência com cães/cachorros (opcional)")
+        foster_data["home_description"] = st.text_area("Home / household information (optional) / Informação sobre casa / agregado familiar (opcional)")
+        outdoor_choice = st.selectbox("Private outdoor space? (optional) / Espaço exterior privado? (opcional)", ["", "Yes", "No"], format_func=lambda x: YES_NO_LABELS.get(x,x))
         foster_data["private_outdoor"] = (
             True if outdoor_choice == "Yes"
             else False if outdoor_choice == "No"
             else None
         )
-        foster_data["notes"] = st.text_area("Fostering notes (optional)")
+        foster_data["notes"] = st.text_area("Fostering notes (optional) / Notas sobre acolhimento (opcional)")
 
     adopter_data = {}
     if "Adopter" in roles:
         st.markdown("<div class='pfpa-section'>Adopter questionnaire</div>", unsafe_allow_html=True)
         st.info(
             f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**. "
-            "Every questionnaire question below is mandatory. A printable PDF copy will be created automatically from your submitted answers."
+            "Every questionnaire question below is mandatory. A printable PDF copy will be created automatically from your submitted answers. / Todas as perguntas abaixo são obrigatórias. Será criada automaticamente uma cópia PDF imprimível a partir das suas respostas."
         )
 
         adopter_data["household"] = st.text_area(
@@ -1584,23 +1637,26 @@ with st.form("supporter_application_form"):
         )
         adopter_data["children"] = st.text_area(
             "Do you have children? If yes, what ages? *",
-            placeholder="If none, enter 'None'.",
+            placeholder="If none, enter 'None'. / Se não tiver, escreva 'Nenhum'.",
         )
         adopter_data["current_pets"] = st.text_area(
-            "Do you currently have pets? What type and ages? *",
-            placeholder="If none, enter 'None'.",
+            "Do you currently have pets? What type and ages? / Tem atualmente animais de estimação? Que tipo e idades? *",
+            placeholder="If none, enter 'None'. / Se não tiver, escreva 'Nenhum'.",
         )
         adopter_data["house_type"] = st.selectbox(
-            "Do you live in a house or apartment? *",
+            "Do you live in a house or apartment? / Vive numa casa ou num apartamento? *",
             ["", "House", "Apartment", "Other"],
+            format_func=lambda x: HOUSE_LABELS.get(x,x),
         )
         adopter_data["rent_own"] = st.selectbox(
-            "Do you rent or own? *",
+            "Do you rent or own? / A habitação é arrendada ou própria? *",
             ["", "Own", "Rent", "Other"],
+            format_func=lambda x: TENURE_LABELS.get(x,x),
         )
         private_outdoor_choice = st.selectbox(
-            "Do you have an enclosed private outdoor space? *",
+            "Do you have an enclosed private outdoor space? / Tem um espaço exterior privado e fechado? *",
             ["", "Yes", "No"],
+            format_func=lambda x: YES_NO_LABELS.get(x,x),
         )
         adopter_data["private_outdoor"] = (
             True if private_outdoor_choice == "Yes"
@@ -1608,27 +1664,27 @@ with st.form("supporter_application_form"):
             else None
         )
         adopter_data["outdoor_description"] = st.text_area(
-            "What type of outdoor space do you have, and is it fenced / secure? *",
-            help="If you have no private outdoor space, state that here.",
+            "What type of outdoor space do you have, and is it fenced / secure? / Que tipo de espaço exterior tem e encontra-se vedado / seguro? *",
+            help="If you have no private outdoor space, state that here. / Se não tiver espaço exterior privado, indique-o aqui.",
         )
         adopter_data["dog_experience"] = st.text_area(
-            "Have you raised a puppy before, or do you have other experience with dogs? Please describe. *"
+            "Have you raised a puppy before, or do you have other experience with dogs? Please describe. / Já criou um cachorro ou tem outra experiência com cães? Descreva. *"
         )
         adopter_data["exercise_training"] = st.text_area(
-            "What is your exercise plan for the puppy, and your thoughts about training? *"
+            "What is your exercise plan for the puppy, and your thoughts about training? / Qual é o seu plano de exercício para o cachorro e a sua abordagem ao treino? *"
         )
         adopter_data["preventative_care"] = st.text_area(
-            "How do you feel about sterilisation, regular vaccines, deworming and flea/tick prevention? *"
+            "How do you feel about sterilisation, regular vaccines, deworming and flea/tick prevention? / Qual é a sua opinião sobre esterilização, vacinação regular, desparasitação e prevenção de pulgas/carraças? *"
         )
         adopter_data["schedule_alone"] = st.text_area(
             "What is your schedule during the day — how long will the puppy be home alone? *"
         )
         adopter_data["sleep_arrangements"] = st.text_area(
-            "Where will the puppy sleep at night, and stay when no one is home? *"
+            "Where will the puppy sleep at night, and stay when no one is home? / Onde dormirá o cachorro à noite e onde ficará quando não estiver ninguém em casa? *"
         )
         adopter_data["vacation_plans"] = st.text_area(
-            "Any vacation plans coming up? *",
-            placeholder="If none, enter 'None'.",
+            "Any vacation plans coming up? / Tem férias planeadas para breve? *",
+            placeholder="If none, enter 'None'. / Se não tiver, escreva 'Nenhum'.",
         )
         adopter_data["travel_petsitting"] = st.text_area(
             "When you travel, where will the puppy stay if not travelling with you? "
@@ -1638,26 +1694,26 @@ with st.form("supporter_application_form"):
             "If your housing, work or family situation changes in the future, "
             "what would that mean for your dog? *"
         )
-        adopter_data["notes"] = st.text_area("Additional adoption notes (optional)")
+        adopter_data["notes"] = st.text_area("Additional adoption notes (optional) / Notas adicionais sobre a adoção (opcional)")
         adopter_data["completed_by"] = st.text_input(
-            "Questionnaire completed by *",
+            "Questionnaire completed by / Questionário preenchido por *",
             value=f"{first_name} {last_name}".strip(),
         )
         adopter_data["completed_at"] = date.today().isoformat()
 
     st.markdown("<div class='pfpa-section'>Data protection and declaration</div>", unsafe_allow_html=True)
     st.write(DATA_PROTECTION)
-    consent = st.checkbox("I have read and agree to the Data Protection statement. *")
+    consent = st.checkbox("I have read and agree to the Data Protection statement. / Li e concordo com a declaração de Proteção de Dados. *")
     declaration = st.checkbox(
-        "I confirm that the information supplied is accurate to the best of my knowledge. *"
+        "I confirm that the information supplied is accurate to the best of my knowledge. / Confirmo que as informações fornecidas são corretas, tanto quanto é do meu conhecimento. *"
     )
     signed_name = st.text_input(
         "Electronic signature — type your full name *",
-        help="Typing your full name acts as your electronic signature for this application.",
+        help="Typing your full name acts as your electronic signature for this application. / Escrever o seu nome completo funciona como assinatura eletrónica para este pedido.",
     )
 
     submitted = st.form_submit_button(
-        "Continue to secure submission",
+        "Continue to secure submission / Continuar para submissão segura",
         type="primary",
         width="stretch",
     )
