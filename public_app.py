@@ -850,7 +850,7 @@ def _render_contract_form(invite, app, supporter, dog):
         st.text_input("Contract declarant name", value=_person_name(supporter), disabled=True, label_visibility="collapsed", key=f"contract_decl_name_{invite.get('Invite_ID')}")
         privacy=st.checkbox("Li e concordo com a declaração de Proteção de Dados e a Política de Privacidade. / I have read and agree to the Data Protection statement and Privacy Policy. *")
         declaration=st.checkbox("I confirm that the pre-filled details above are accurate and that I intend my typed name below to act as my electronic signature. / Confirmo que os dados pré-preenchidos acima estão corretos e que pretendo que o nome digitado abaixo funcione como a minha assinatura eletrónica. *")
-        signed_name=st.text_input("Electronic signature - type your full name / Assinatura eletrónica - escreva o seu nome completo *",value=_person_name(supporter))
+        signed_name=st.text_input("Assinatura eletrónica — nome completo / Electronic signature — full name *", value=_person_name(supporter), disabled=True)
         submit=st.form_submit_button("Continue to secure signing / Continuar para assinatura segura",type="primary",width="stretch")
     if submit:
         errors=[]
@@ -1086,7 +1086,7 @@ def _render_questionnaire_only_form(invite, app, supporter, dog):
         st.write(DATA_PROTECTION)
         consent = st.checkbox("I have read and agree to the Data Protection statement. / Li e concordo com a declaração de Proteção de Dados. *")
         declaration = st.checkbox("I confirm that the information supplied is complete and accurate to the best of my knowledge. / Confirmo que as informações fornecidas são completas e corretas, tanto quanto é do meu conhecimento. *")
-        signed_name = st.text_input("Electronic signature - type your full name / Assinatura eletrónica - escreva o seu nome completo *", value=f"{supporter.get('First_Name','')} {supporter.get('Last_Name','')}".strip())
+        signed_name = st.text_input("Assinatura eletrónica — nome completo / Electronic signature — full name *", value=f"{supporter.get('First_Name','')} {supporter.get('Last_Name','')}".strip(), disabled=True)
         submit = st.form_submit_button("Continue to secure submission / Continuar para submissão segura", type="primary", width="stretch")
 
     if submit:
@@ -1715,8 +1715,10 @@ with st.form("supporter_application_form"):
         "I confirm that the information supplied is accurate to the best of my knowledge. / Confirmo que as informações fornecidas são corretas, tanto quanto é do meu conhecimento. *"
     )
     signed_name = st.text_input(
-        "Electronic signature — type your full name *",
-        help="Typing your full name acts as your electronic signature for this application. / Escrever o seu nome completo funciona como assinatura eletrónica para este pedido.",
+        "Assinatura eletrónica — nome completo / Electronic signature — full name *",
+        value=f"{first_name} {last_name}".strip(),
+        disabled=True,
+        help="O nome é copiado automaticamente dos dados do candidato. / The name is copied automatically from the applicant details.",
     )
 
     submitted = st.form_submit_button(
