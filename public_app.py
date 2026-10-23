@@ -846,7 +846,9 @@ def _render_contract_form(invite, app, supporter, dog):
         st.markdown("#### Data protection and electronic signature")
         st.write(DATA_PROTECTION)
         accept_terms=st.checkbox("I have read and agree to all provisions of this adoption contract. / Li e concordo com todas as cláusulas deste contrato de adoção. *")
-        privacy=st.checkbox("I have read and agree to the Data Protection statement and Privacy Policy. / Li e concordo com a declaração de Proteção de Dados e a Política de Privacidade. *")
+        st.markdown("**Nome do declarante**  \n**Declarant name**")
+        st.text_input("Contract declarant name", value=_person_name(supporter), disabled=True, label_visibility="collapsed", key=f"contract_decl_name_{invite.get('Invite_ID')}")
+        privacy=st.checkbox("Li e concordo com a declaração de Proteção de Dados e a Política de Privacidade. / I have read and agree to the Data Protection statement and Privacy Policy. *")
         declaration=st.checkbox("I confirm that the pre-filled details above are accurate and that I intend my typed name below to act as my electronic signature. / Confirmo que os dados pré-preenchidos acima estão corretos e que pretendo que o nome digitado abaixo funcione como a minha assinatura eletrónica. *")
         signed_name=st.text_input("Electronic signature - type your full name / Assinatura eletrónica - escreva o seu nome completo *",value=_person_name(supporter))
         submit=st.form_submit_button("Continue to secure signing / Continuar para assinatura segura",type="primary",width="stretch")
@@ -1416,7 +1418,8 @@ if pending:
             # Consume the invitation only after the V2 application, role rows and
             # any questionnaire have all been stored successfully.
             supabase.table("Supporter_Invite").update({
-                "Use_Count": int(pending.get("invite_use_count") or 0) + 1
+                "Use_Count": int(pending.get("invite_use_count") or 0) + 1,
+                "Active": False,
             }).eq("Invite_ID", pending["invite_id"]).execute()
 
             admin_email = _secret("APPLICATION_NOTIFICATION_EMAIL")
@@ -1570,8 +1573,12 @@ with st.form("supporter_application_form"):
         "If you are applying to adopt, every adoption-questionnaire field is mandatory. / Se estiver a candidatar-se à adoção, todos os campos do questionário de adoção são obrigatórios."
     )
 
-    first_name = st.text_input("First name / Nome próprio *")
-    last_name = st.text_input("Last name / Apelido *")
+    invitee_name = str(invite.get("Invitee_Name") or "").strip()
+    invitee_parts = invitee_name.split(None, 1) if invitee_name else []
+    invitee_first = invitee_parts[0] if invitee_parts else ""
+    invitee_last = invitee_parts[1] if len(invitee_parts) > 1 else ""
+    first_name = st.text_input("Nome próprio / First name *", value=invitee_first)
+    last_name = st.text_input("Apelido / Last name *", value=invitee_last)
 
     default_calling_code = "+351 PT"
     phone_code = st.selectbox(
