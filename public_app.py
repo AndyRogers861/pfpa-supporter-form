@@ -331,7 +331,13 @@ SUPABASE_URL = _secret("SUPABASE_URL")
 SUPABASE_KEY = _secret("SUPABASE_SECRET_KEY")
 TURNSTILE_SITE_KEY = _secret("TURNSTILE_SITE_KEY")
 TURNSTILE_SECRET_KEY = _secret("TURNSTILE_SECRET_KEY")
-PRIVATE_APP_REVIEW_URL = str(_secret("PRIVATE_APP_REVIEW_URL", "") or "").rstrip("/")
+PRIVATE_APP_REVIEW_URL = str(
+    _secret(
+        "V2_PRIVATE_APP_URL",
+        _secret("PRIVATE_APP_REVIEW_URL", "https://puppy-fosters-v2.streamlit.app/"),
+    )
+    or ""
+).rstrip("/")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("This application form is not configured yet. Please contact Puppy Fosters - Algarve.")
@@ -342,6 +348,17 @@ if not TURNSTILE_SITE_KEY or not TURNSTILE_SECRET_KEY:
     st.stop()
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+def _admin_review_text():
+    """Return one consistent V2 private-app review instruction for admin emails."""
+    if PRIVATE_APP_REVIEW_URL:
+        return (
+            "Review it in the secure Puppy Fosters - Algarve V2 administration app:\n"
+            f"{PRIVATE_APP_REVIEW_URL}"
+        )
+    return "Please review it in the secure Puppy Fosters - Algarve V2 administration app."
+
 
 
 # ---------------------------------------------------------------------
@@ -481,6 +498,23 @@ def _send_email(to_address, subject, body):
 
 def _clean(value):
     return " ".join(str(value or "").strip().split())
+
+
+def _iso_date_value(value):
+    """Normalize a date/date-like value to YYYY-MM-DD for Supabase."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10]).isoformat()
+    except ValueError as exc:
+        raise ValueError(f"Invalid date value: {value}") from exc
 
 
 def _clean_email(value):
@@ -806,7 +840,7 @@ def _save_contract_submission(pending):
         except Exception: pass
         raise
     supabase.table("V2_Adoption_Application").update({
-        "Contract_Document_ID":doc_id,"Contract_Signed_Date":date.today().isoformat(),
+        "Contract_Document_ID":doc_id,"Contract_Signed_Date":_iso_date_value(date.today()),
         "Status":"Contract Signed","Updated_By":"Public adoption contract","Updated_At":now,
     }).eq("Adoption_Application_ID",app_id).execute()
     supabase.table("Supporter_Invite").update({
@@ -866,7 +900,7 @@ def _render_contract_form(invite, app, supporter, dog):
             st.session_state["pending_contract_submission"]={
                 "invite_id":invite["Invite_ID"],"invite_use_count":invite.get("Use_Count") or 0,
                 "adoption_application_id":int(app["Adoption_Application_ID"]),"supporter_id":int(supporter["Supporter_ID"]),"dog_id":int(dog["Dog_ID"]),
-                "dog_name":dog.get("Name") or "Dog","adoption_date":adoption_date.isoformat(),
+                "dog_name":dog.get("Name") or "Dog","adoption_date":_iso_date_value(adoption_date),
                 "address":_clean(address),"country":_clean(country),"phone_code":clean_phone_code(phone_code),"phone_number":_clean(phone_number),"email":_clean_email(email),
                 "signed_name":_clean(signed_name),"issued_by":invite.get("Created_By") or "Puppy Fosters - Algarve",
             }
@@ -1256,9 +1290,16 @@ if contract_pending:
         try:
             filename,pdf_bytes=_save_contract_submission(contract_pending)
             admin_email=_secret("APPLICATION_NOTIFICATION_EMAIL")
-            _send_email(admin_email,f"Adoption contract signed - {contract_pending['dog_name']}",(
-                f"The online adoption contract has been signed.\n\nDog: {contract_pending['dog_name']}\nAdoption application ID: {contract_pending['adoption_application_id']}\n\nReview it in the private Puppy Fosters - Algarve Applications page."
-            ))
+            _send_email(
+                admin_email,
+                f"Adoption contract signed - {contract_pending['dog_name']}",
+                (
+                    f"The online adoption contract has been signed.\n\n"
+                    f"Dog: {contract_pending['dog_name']}\n"
+                    f"Adoption application ID: {contract_pending['adoption_application_id']}\n\n"
+                    f"{_admin_review_text()}"
+                ),
+            )
             _send_email(contract_pending["email"],f"Puppy Fosters - Algarve - adoption contract signed for {contract_pending['dog_name']}",(
                 f"Hello {contract_pending['signed_name']},\n\nThank you. Your electronically signed adoption contract for {contract_pending['dog_name']} has been received securely.\n\nKind regards,\nPuppy Fosters - Algarve"
             ))
@@ -1303,7 +1344,7 @@ if questionnaire_pending:
                     f"Dog: {questionnaire_pending['dog_name']}\n"
                     f"Applicant: {questionnaire_pending['contact']['first_name']} {questionnaire_pending['contact']['last_name']}\n"
                     f"Adoption application ID: {questionnaire_pending['adoption_application_id']}\n\n"
-                    "Review it in the private Puppy Fosters - Algarve Applications page."
+                    f"{_admin_review_text()}"
                 ),
             )
             _send_email(
@@ -1433,13 +1474,7 @@ if pending:
             if pending.get("dog_name"):
                 review_lines.append(f"Dog: {pending['dog_name']}")
             review_lines.append("")
-            if PRIVATE_APP_REVIEW_URL:
-                review_lines.extend([
-                    "Review the application in the secure Puppy Fosters - Algarve administration app:",
-                    PRIVATE_APP_REVIEW_URL,
-                ])
-            else:
-                review_lines.append("Please review it in the secure Puppy Fosters - Algarve administration app.")
+            review_lines.append(_admin_review_text())
 
             notification_sent = _send_email(
                 admin_email,
