@@ -564,6 +564,38 @@ def _load_invite(token):
     return invite
 
 
+def _supporter(supporter_id):
+    if not supporter_id:
+        return None
+    rows = (
+        supabase.table("V2_Supporter")
+        .select("*")
+        .eq("Supporter_ID", int(supporter_id))
+        .eq("Active", True)
+        .eq("is_deleted", False)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
+
+
+def _litter(litter_id):
+    if not litter_id:
+        return None
+    rows = (
+        supabase.table("V2_Litter")
+        .select("Litter_ID,Litter_Name,Litter_Date,Active")
+        .eq("Litter_ID", int(litter_id))
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
+
+
 def _dog(dog_id):
     if not dog_id:
         return None
@@ -1233,6 +1265,8 @@ if isinstance(allowed_roles, str):
 allowed_roles = [r for r in ROLE_OPTIONS if r in allowed_roles] or ROLE_OPTIONS
 
 invited_dog = _dog(invite.get("Related_Dog_ID"))
+invited_supporter = _supporter(invite.get("Supporter_ID"))
+interested_litter = _litter(invite.get("Interested_Litter_ID"))
 if invite.get("Related_Dog_ID") and not invited_dog:
     st.error("The dog linked to this invitation is no longer available. Please contact Puppy Fosters.")
     st.stop()
@@ -1433,12 +1467,17 @@ if pending:
                     role_payload["Related_Dog_ID"] = int(pending["dog_id"])
                 supabase.table("V2_Application_Role").insert(role_payload).execute()
 
-            if "Adopter" in pending["roles"] and pending.get("dog_id"):
+            if "Adopter" in pending["roles"]:
                 qdata = pending["role_data"].get("Adopter") or {}
                 contact = pending["application_payload"].get("Common_Data") or {}
-                filename = f"{pending.get('dog_name') or 'Dog'}-Adoption-Questionnaire-{date.today().isoformat()}.pdf"
+                interest_name = (
+                    pending.get("dog_name")
+                    or pending.get("litter_name")
+                    or "General-Adoption"
+                )
+                filename = f"{interest_name}-Adoption-Questionnaire-{date.today().isoformat()}.pdf"
                 pdf_bytes = _questionnaire_pdf_bytes(
-                    pending.get("dog_name"), contact, qdata,
+                    pending.get("dog_name") or pending.get("litter_name"), contact, qdata,
                     pending["application_payload"].get("Signed_Name"),
                     datetime.now(timezone.utc).strftime("%d %b %Y %H:%M UTC"),
                 )
@@ -1450,7 +1489,7 @@ if pending:
                 )
                 supabase.table("V2_Application_Document").insert({
                     "Application_ID": app_id, "Role_Type": "Adopter",
-                    "Dog_ID": int(pending["dog_id"]),
+                    "Dog_ID": int(pending["dog_id"]) if pending.get("dog_id") else None,
                     "Document_Type": "Adoption Questionnaire",
                     "File_Name": filename, "Storage_Path": storage_path,
                     "Mime_Type": "application/pdf",
@@ -1557,13 +1596,6 @@ st.markdown(
 
 default_roles = allowed_roles if len(allowed_roles) == 1 else []
 
-if "Adopter" in allowed_roles and not invited_dog:
-    st.error(
-        "Adopter applications must be linked to a specific dog. "
-        "Please ask Puppy Fosters - Algarve for a dog-specific invitation."
-    )
-    st.stop()
-
 if invited_dog and "Adopter" in allowed_roles:
     default_roles = list(dict.fromkeys(default_roles + ["Adopter"]))
 
@@ -1590,12 +1622,23 @@ if not roles:
 # ---------------------------------------------------------------------
 # ADOPTION QUESTIONNAIRE
 # ---------------------------------------------------------------------
-if "Adopter" in roles and invited_dog:
+if "Adopter" in roles:
     st.markdown("<div class='pfpa-section'>Adoption questionnaire</div>", unsafe_allow_html=True)
-    st.info(
-        f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**. "
-        "Complete every questionnaire field online below. A printable PDF copy will be generated automatically when you submit."
-    )
+    if invited_dog:
+        st.info(
+            f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**. "
+            "Complete every questionnaire field online below. A printable PDF copy will be generated automatically when you submit."
+        )
+    elif interested_litter:
+        st.info(
+            f"Litter of interest / Ninhada de interesse: **{interested_litter.get('Litter_Name') or 'Selected litter'}**. "
+            "A specific dog will be agreed before the adoption contract is prepared."
+        )
+    else:
+        st.info(
+            "This questionnaire is not yet allocated to a specific dog. "
+            "A specific dog will be agreed before the adoption contract is prepared."
+        )
 
 
 # ---------------------------------------------------------------------
@@ -1612,10 +1655,19 @@ with st.form("supporter_application_form"):
     invitee_parts = invitee_name.split(None, 1) if invitee_name else []
     invitee_first = invitee_parts[0] if invitee_parts else ""
     invitee_last = invitee_parts[1] if len(invitee_parts) > 1 else ""
+
+    if invited_supporter:
+        invitee_first = invited_supporter.get("First_Name") or invitee_first
+        invitee_last = invited_supporter.get("Last_Name") or invitee_last
+
     first_name = st.text_input("Nome próprio / First name *", value=invitee_first)
     last_name = st.text_input("Apelido / Last name *", value=invitee_last)
 
-    default_calling_code = "+351 PT"
+    default_calling_code = (
+        invited_supporter.get("Phone_Code")
+        if invited_supporter and invited_supporter.get("Phone_Code")
+        else "+351 PT"
+    )
     phone_code = st.selectbox(
         "Country code / Indicativo do país *",
         CALLING_CODES,
@@ -1624,12 +1676,22 @@ with st.form("supporter_application_form"):
     )
     phone_number = st.text_input(
         "Phone / Telefone *",
+        value=(invited_supporter.get("Phone_Number") or "") if invited_supporter else "",
         help="Enter the local/national number only; the country code is selected above. / Introduza apenas o número nacional/local; o indicativo do país é selecionado acima.",
         placeholder="e.g. 912 345 678",
     )
-    email = st.text_input("E-mail / E-mail *", value=invite.get("Email") or "")
-    postcode = st.text_input("Postcode / Código postal *")
-    parish = st.text_input("Parish / Freguesia *")
+    email = st.text_input(
+        "E-mail / E-mail (optional)",
+        value=((invited_supporter.get("Email") or "") if invited_supporter else (invite.get("Email") or "")),
+    )
+    postcode = st.text_input(
+        "Postcode / Código postal *",
+        value=(invited_supporter.get("Postcode") or "") if invited_supporter else "",
+    )
+    parish = st.text_input(
+        "Parish / Freguesia *",
+        value=(invited_supporter.get("Parish") or "") if invited_supporter else "",
+    )
     country = st.selectbox(
         "Country / País *",
         COUNTRIES,
@@ -1640,7 +1702,8 @@ with st.form("supporter_application_form"):
     if "Adopter" in roles:
         address = st.text_area(
             "Address / Morada *",
-            help="Required for a dog-specific adoption application and the adoption contract.",
+            value=(invited_supporter.get("Address") or "") if invited_supporter else "",
+            help="Required for an adoption application and the later adoption contract.",
         )
 
     volunteer_data = {}
@@ -1669,10 +1732,21 @@ with st.form("supporter_application_form"):
     adopter_data = {}
     if "Adopter" in roles:
         st.markdown("<div class='pfpa-section'>Adopter questionnaire</div>", unsafe_allow_html=True)
+        if invited_dog:
+            adoption_interest_text = f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**."
+        elif interested_litter:
+            adoption_interest_text = (
+                f"Litter of interest / Ninhada de interesse: **{interested_litter.get('Litter_Name') or 'Selected litter'}**. "
+                "A specific dog will be agreed before contract preparation."
+            )
+        else:
+            adoption_interest_text = "A specific dog will be agreed before contract preparation."
         st.info(
-            f"This application is for **{invited_dog.get('Name') or 'the selected dog'}**. "
-            "Every questionnaire question below is mandatory. A printable PDF copy will be created automatically from your submitted answers. / Todas as perguntas abaixo são obrigatórias. Será criada automaticamente uma cópia PDF imprimível a partir das suas respostas."
+            adoption_interest_text
+            + " Every questionnaire question below is mandatory. A printable PDF copy will be created automatically from your submitted answers. / Todas as perguntas abaixo são obrigatórias. Será criada automaticamente uma cópia PDF imprimível a partir das suas respostas."
         )
+        adopter_data["interested_litter_id"] = int(interested_litter["Litter_ID"]) if interested_litter else None
+        adopter_data["interested_litter_name"] = interested_litter.get("Litter_Name") if interested_litter else None
 
         adopter_data["household"] = st.text_area(
             "Tell us about your home and household *"
@@ -1777,7 +1851,6 @@ if submitted:
         ("Last name", last_name),
         ("Country code", phone_code),
         ("Phone", phone_number),
-        ("E-mail", email),
         ("Postcode", postcode),
         ("Parish", parish),
         ("Country", country),
@@ -1790,8 +1863,6 @@ if submitted:
         errors.append("Please enter a valid e-mail address.")
 
     if "Adopter" in roles:
-        if not invited_dog:
-            errors.append("An adopter application must be linked to a specific dog.")
         if not _clean(address):
             errors.append("Address is required for an adoption application.")
         adopter_required = [
@@ -1875,6 +1946,9 @@ if submitted:
             "reference": reference,
             "dog_id": int(invited_dog["Dog_ID"]) if invited_dog else None,
             "dog_name": invited_dog.get("Name") if invited_dog else None,
+            "litter_id": int(interested_litter["Litter_ID"]) if interested_litter else None,
+            "litter_name": interested_litter.get("Litter_Name") if interested_litter else None,
+            "supporter_id": int(invited_supporter["Supporter_ID"]) if invited_supporter else None,
         }
         st.session_state["turnstile_version"] = int(
             st.session_state.get("turnstile_version", 0)
